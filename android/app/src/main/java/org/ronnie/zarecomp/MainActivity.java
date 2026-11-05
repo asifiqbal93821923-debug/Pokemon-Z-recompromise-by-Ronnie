@@ -9,18 +9,16 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
-/**
- * Java-only host screen. It stays in the main process while SDL runs in a
- * separate process, so an SDL/native crash returns here instead of closing
- * the whole diagnostic app.
- */
+/** Java-only host screen; remains independent from the SDL diagnostic process. */
 public final class MainActivity extends Activity {
     private TextView status;
     private int launchCount;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildDiagnosticScreen();
         status.setText("Host Activity: created. Main process is alive.");
@@ -43,15 +41,14 @@ public final class MainActivity extends Activity {
 
         TextView intro = new TextView(this);
         intro.setText("\nThis is a diagnostic host screen, not the game.\n"
-                + "The SDL test now runs in a separate Android process. "
-                + "If SDL crashes, this screen should remain available.");
+                + "SDL runs in a separate Android process. Lifecycle records are saved locally.");
         intro.setTextColor(0xFFD7E0EE);
         intro.setTextSize(15);
         root.addView(intro);
 
         status = new TextView(this);
         status.setTextColor(0xFF8FE3A5);
-        status.setTextSize(15);
+        status.setTextSize(14);
         status.setPadding(0, pad, 0, pad);
         root.addView(status);
 
@@ -72,8 +69,7 @@ public final class MainActivity extends Activity {
         sdlButton.setText("Launch SDL3 diagnostic");
         sdlButton.setOnClickListener(v -> {
             launchCount++;
-            status.setText("SDL launch #" + launchCount
-                    + " requested. If SDL exits/crashes, return here and read this status.");
+            status.setText("SDL launch #" + launchCount + " requested.");
             try {
                 startActivity(new Intent(this, SDLProbeActivity.class));
             } catch (Throwable error) {
@@ -83,18 +79,34 @@ public final class MainActivity extends Activity {
         });
         root.addView(sdlButton);
 
+        Button logButton = new Button(this);
+        logButton.setText("Show SDL diagnostic log");
+        logButton.setOnClickListener(v -> showSdlLog());
+        root.addView(logButton);
+
         ScrollView scroll = new ScrollView(this);
         scroll.addView(root);
         setContentView(scroll);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (status != null && launchCount > 0) {
-            status.setText("Returned to host after SDL launch #" + launchCount
-                    + ". Host process is still alive.");
+    private void showSdlLog() {
+        try {
+            File logFile = new File(getFilesDir(), "za_sdl_diagnostics.log");
+            if (!logFile.exists()) {
+                status.setText("No SDL lifecycle log found yet. Launch SDL3 diagnostic first.");
+                return;
+            }
+            String log = new String(Files.readAllBytes(logFile.toPath()), StandardCharsets.UTF_8);
+            status.setText(log.length() > 12000 ? log.substring(log.length() - 12000) : log);
+        } catch (Exception error) {
+            status.setText("LOG READ FAILED\n" + error.getClass().getSimpleName()
+                    + ": " + error.getMessage());
         }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        // Keep the last displayed status so the user can inspect the log.
     }
 
     private static native String nativeGetProbeInfo();
