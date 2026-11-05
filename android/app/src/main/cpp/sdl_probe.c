@@ -1,5 +1,40 @@
 #include <SDL3/SDL.h>
 #include <stdbool.h>
+#include <stddef.h>
+
+#define MAX_TRACKED_FINGERS 16
+
+static SDL_FingerID active_fingers[MAX_TRACKED_FINGERS];
+static size_t active_finger_count;
+
+static bool track_finger_down(SDL_FingerID id)
+{
+    for (size_t i = 0; i < active_finger_count; ++i) {
+        if (active_fingers[i] == id) {
+            return true;
+        }
+    }
+
+    if (active_finger_count == MAX_TRACKED_FINGERS) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Touch tracker full; ignoring finger=%llu",
+                    (unsigned long long)id);
+        return false;
+    }
+
+    active_fingers[active_finger_count++] = id;
+    return true;
+}
+
+static void track_finger_up(SDL_FingerID id)
+{
+    for (size_t i = 0; i < active_finger_count; ++i) {
+        if (active_fingers[i] == id) {
+            active_fingers[i] = active_fingers[active_finger_count - 1];
+            --active_finger_count;
+            return;
+        }
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -12,7 +47,7 @@ int main(int argc, char **argv)
     }
 
     SDL_Window *window = SDL_CreateWindow(
-        "Pokémon Z-A — SDL3 Android Probe",
+        "Pokémon Z-A — SDL3 Android Touch Test",
         0,
         0,
         SDL_WINDOW_FULLSCREEN
@@ -25,17 +60,16 @@ int main(int argc, char **argv)
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
     if (renderer == NULL) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateRenderer failed: %s", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_RENDER, "SDL_CreateRenderer failed: %s", SDL_GetError());
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 3;
     }
 
     bool running = true;
-    bool touch_active = false;
     SDL_Event event;
-
-    SDL_Log("SDL3 Android probe started. Touch events are being monitored.");
+    SDL_Log("SDL3 Android touch test ready; maximum tracked simultaneous fingers=%u",
+            (unsigned)MAX_TRACKED_FINGERS);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -44,32 +78,45 @@ int main(int argc, char **argv)
                 running = false;
                 break;
             case SDL_EVENT_FINGER_DOWN:
-                touch_active = true;
-                SDL_Log("Touch down: finger=%lld x=%.3f y=%.3f",
-                        (long long)event.tfinger.fingerID,
-                        event.tfinger.x, event.tfinger.y);
+                (void)track_finger_down(event.tfinger.fingerID);
+                SDL_Log("TOUCH_DOWN id=%llu x=%.4f y=%.4f active=%u",
+                        (unsigned long long)event.tfinger.fingerID,
+                        event.tfinger.x, event.tfinger.y,
+                        (unsigned)active_finger_count);
                 break;
             case SDL_EVENT_FINGER_UP:
-                touch_active = false;
-                SDL_Log("Touch up: finger=%lld",
-                        (long long)event.tfinger.fingerID);
+                track_finger_up(event.tfinger.fingerID);
+                SDL_Log("TOUCH_UP id=%llu active=%u",
+                        (unsigned long long)event.tfinger.fingerID,
+                        (unsigned)active_finger_count);
                 break;
             case SDL_EVENT_FINGER_MOTION:
                 SDL_LogVerbose(SDL_LOG_CATEGORY_INPUT,
-                               "Touch move: finger=%lld x=%.3f y=%.3f",
-                               (long long)event.tfinger.fingerID,
-                               event.tfinger.x, event.tfinger.y);
+                               "TOUCH_MOVE id=%llu x=%.4f y=%.4f dx=%.4f dy=%.4f",
+                               (unsigned long long)event.tfinger.fingerID,
+                               event.tfinger.x, event.tfinger.y,
+                               event.tfinger.dx, event.tfinger.dy);
                 break;
             default:
                 break;
             }
         }
 
-        if (!SDL_SetRenderDrawColor(renderer,
-                                    touch_active ? 40 : 18,
-                                    touch_active ? 110 : 28,
-                                    touch_active ? 180 : 48,
-                                    255)) {
+        /* Neutral = no touch, green = one finger, amber = multi-touch. */
+        Uint8 red = 18;
+        Uint8 green = 28;
+        Uint8 blue = 48;
+        if (active_finger_count == 1) {
+            red = 30;
+            green = 120;
+            blue = 70;
+        } else if (active_finger_count > 1) {
+            red = 170;
+            green = 105;
+            blue = 25;
+        }
+
+        if (!SDL_SetRenderDrawColor(renderer, red, green, blue, 255)) {
             SDL_LogError(SDL_LOG_CATEGORY_RENDER, "SDL_SetRenderDrawColor: %s", SDL_GetError());
         }
         if (!SDL_RenderClear(renderer)) {
