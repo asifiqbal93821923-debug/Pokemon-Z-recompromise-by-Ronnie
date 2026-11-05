@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include "vulkan_probe.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -65,6 +66,8 @@ int main(int argc, char **argv)
         SDL_Quit();
         return 3;
     }
+
+    za_log_vulkan_capabilities();
 
     bool running = true;
     SDL_Event event;
