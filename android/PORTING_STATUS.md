@@ -4,25 +4,24 @@ Last updated: 2026-11-06
 
 ## Overall state
 
-<badge>Research and planning</badge>
-
-No Android APK has been built from this repository. No Android device test has been performed from this repository. This file tracks work; checked items require evidence.
+**Native Android probe APK built successfully in GitHub Actions.** This is a toolchain/JNI smoke-test app only, not a playable Pokémon Z-A port. No physical-device installation or gameplay test has been performed.
 
 ## Milestones
 
 | Milestone | Status | Evidence / next action |
 |---|---|---|
 | Create project repository | Done | Public repository, default branch `main` |
-| Add initial project documentation | Done | README, plan, source index and status tracker committed and fetched back |
-| Audit upstream platform abstraction | Done (source inspection) | `docs/ANDROID_PLATFORM_AUDIT.md`; upstream `platform.h`, `linux.c`, `main.c`, `paths.h`, `Makefile` inspected |
-| Android Gradle/NDK shell | Source scaffold committed | Minimal Java Activity + JNI C probe, arm64-v8a Gradle/CMake config and CI workflow; build not yet verified |
-| Android platform backend | Not started | Implement only after NDK shell/build target exists; no Android C implementation committed yet |
-| SDL3 Android integration | Not started | Activity lifecycle and multi-touch events |
-| Vulkan Android surface | Not started | Query actual device features and test swapchain |
-| Local game-file picker | Design exists separately | Integrate and test SAF descriptor behavior |
-| Native build | CI retry queued | Earlier runs failed during Android SDK setup (`sdkmanager`: package `tools` not found), before Gradle compiled the app. Workflow was changed to locate the runner's installed SDK manager directly; latest run is queued. |
-| Device launch test | Not started | Test on owner's Android 16 device |
-| Game setup/gameplay | Not started | Only after all previous milestones pass |
+| Add initial project documentation | Done | README, plan, source index and status tracker |
+| Audit upstream platform abstraction | Done (source inspection) | `docs/ANDROID_PLATFORM_AUDIT.md`; inspected upstream platform API, Linux backend, main startup, paths and Makefile |
+| Android Gradle/NDK shell | Done (smoke-test scope) | Java Activity + JNI C probe, arm64-v8a Gradle/CMake config |
+| Android CI build | **Passed** | Run [#7](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42094435912); build and artifact upload steps succeeded |
+| APK artifact | **Uploaded and inspected** | Artifact `pokemon-za-android-probe-arm64-debug`; contains `app-debug.apk` (3,809,344 bytes), recognized as an Android package |
+| Android platform backend | Not started | Implement a distinct Android platform backend after runtime integration design |
+| SDL3 Android integration | Not started | Integrate SDL3 Android Activity/lifecycle and multi-touch events |
+| Vulkan Android surface | Not started | Create Android surface/swapchain path and inspect actual device Vulkan capabilities |
+| Local game-file picker | Design exists separately | Integrate and test SAF descriptor handling |
+| Device launch test | Not started | Install and exercise probe on owner's Android 16 device |
+| Game setup/gameplay | Not started | Only after runtime, renderer and user-owned game-data setup work |
 
 ## Target device information
 
@@ -31,9 +30,17 @@ No Android APK has been built from this repository. No Android device test has b
 - Storage: 128 GB (reported)
 - SoC/GPU: not verified
 - Vulkan version/extensions: not verified
-- Device build/test: not performed
+- Device installation/test: not performed
 
-## Latest audit result\n\nThe upstream Makefile selects Windows/Linux/macOS only and compiles `runtime/platform/$(PLATFORM).c`; its Linux backend uses `userfaultfd`/`PAGEMAP_SCAN` and desktop process/path assumptions. Android therefore needs a distinct build branch and platform backend. Audit details: `docs/ANDROID_PLATFORM_AUDIT.md`. A separate minimal JNI/NDK probe shell and CI workflow have been committed; this is not the game runtime.\n\n## Latest native-shell milestone\n\nCommitted a minimal arm64-v8a Android app shell with a Java Activity, JNI C probe, Gradle/CMake configuration and `.github/workflows/android-smoke.yml`. It is designed to test the Android toolchain and basic NDK/JNI calls only. It does not include SDL3, Vulkan, the ZA runtime or game data. The workflow has not yet produced a verified run or APK.\n\n## Rules for status updates
+## Verified smoke-build scope
+
+The CI job used JDK 17, Gradle 9.6.0, Android SDK 36, NDK 28.2 and CMake 3.22.1. It compiled the arm64-v8a debug APK and uploaded the artifact. The APK contains only the minimal Java Activity and JNI C probe. It does **not** include SDL3, Vulkan rendering, the ZA Recomp runtime, a game importer or game data.
+
+## Upstream Android-port constraints
+
+The upstream Makefile currently selects Windows/Linux/macOS and compiles `runtime/platform/$(PLATFORM).c`. The Linux backend relies on Linux-specific facilities and desktop process/path assumptions; Android needs a dedicated implementation rather than renaming or copying the Linux backend. See `docs/ANDROID_PLATFORM_AUDIT.md` and `android/ANDROID_PLATFORM_CONTRACT.md`.
+
+## Rules for status updates
 
 - "Implemented" means code exists.
 - "Build passed" means a real build completed successfully and its output was inspected.
