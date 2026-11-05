@@ -67,6 +67,7 @@ int main(int argc, char **argv)
     }
 
     SDL_Log("ZA_DIAG_STAGE=window_created");
+    za_log_vulkan_capabilities(window);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
     if (renderer == NULL) {
         SDL_LogWarn(SDL_LOG_CATEGORY_RENDER, "Default renderer unavailable: %s",
