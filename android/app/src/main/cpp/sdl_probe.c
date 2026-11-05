@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h> /* Exports the SDL_main entry point required by SDLActivity on Android. */
 #include "vulkan_probe.h"
 #include <stdbool.h>
 #include <stddef.h>
