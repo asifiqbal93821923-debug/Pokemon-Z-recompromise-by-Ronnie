@@ -2,13 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="false"
-        android:label="Pokémon Z-A Android Port Probe"
+        android:label="Pokémon Z-A SDL3 Probe"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="true">
+            android:configChanges="locale|orientation|screenSize|uiMode|keyboard|keyboardHidden|navigation"
+            android:exported="true"
+            android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
