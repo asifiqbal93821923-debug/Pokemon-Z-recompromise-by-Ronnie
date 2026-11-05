@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-sdl3-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android-arm64-debug:
     runs-on: ubuntu-latest
