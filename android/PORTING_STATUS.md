@@ -20,7 +20,7 @@ No Android APK has been built from this repository. No Android device test has b
 | SDL3 Android integration | Not started | Activity lifecycle and multi-touch events |
 | Vulkan Android surface | Not started | Query actual device features and test swapchain |
 | Local game-file picker | Design exists separately | Integrate and test SAF descriptor behavior |
-| Native build | CI queued/in progress | GitHub Actions run exists for the latest CMake logging fix; result not yet available |
+| Native build | CI retry queued | Earlier runs failed during Android SDK setup (`sdkmanager`: package `tools` not found), before Gradle compiled the app. Workflow was changed to locate the runner's installed SDK manager directly; latest run is queued. |
 | Device launch test | Not started | Test on owner's Android 16 device |
 | Game setup/gameplay | Not started | Only after all previous milestones pass |
 
