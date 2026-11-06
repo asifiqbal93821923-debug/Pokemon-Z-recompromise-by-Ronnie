@@ -43,7 +43,7 @@ android {
         debug {
             // Separate package so this APK can be installed alongside the
             // existing .debug app even when the ephemeral CI signing key differs.
-            applicationIdSuffix '.recovery'
+            applicationIdSuffix '.storageprobe'
             debuggable true
         }
         release {
