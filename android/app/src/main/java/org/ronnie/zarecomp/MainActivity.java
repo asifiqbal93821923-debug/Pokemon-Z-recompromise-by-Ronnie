@@ -2,6 +2,10 @@ package org.ronnie.zarecomp;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.os.Build;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -87,9 +91,73 @@ public final class MainActivity extends Activity {
         logButton.setOnClickListener(v -> showSdlLog());
         root.addView(logButton);
 
+        Button copyButton = new Button(this);
+        copyButton.setText("COPY FULL DIAGNOSTICS");
+        copyButton.setOnClickListener(v -> copyFullDiagnostics());
+        root.addView(copyButton);
+
         ScrollView scroll = new ScrollView(this);
         scroll.addView(root);
         setContentView(scroll);
+    }
+
+    /**
+     * Copies the complete, untruncated diagnostic report to the Android clipboard.
+     * The log is app-private and may contain output from the separate SDL process.
+     */
+    private void copyFullDiagnostics() {
+        try {
+            StringBuilder report = new StringBuilder(64 * 1024);
+            report.append("POKEMON Z-A ANDROID DIAGNOSTICS\\n");
+            report.append("Captured: ").append(java.time.Instant.now()).append('\\n');
+            report.append("Device: ").append(Build.MANUFACTURER).append(' ')
+                    .append(Build.MODEL).append('\\n');
+            report.append("Android: ").append(Build.VERSION.RELEASE)
+                    .append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\\n");
+            report.append("Supported ABIs: ");
+            if (Build.SUPPORTED_ABIS != null) {
+                for (int i = 0; i < Build.SUPPORTED_ABIS.length; i++) {
+                    if (i > 0) report.append(", ");
+                    report.append(Build.SUPPORTED_ABIS[i]);
+                }
+            }
+            report.append("\\nApp files: ").append(getFilesDir().getAbsolutePath()).append("\\n");
+
+            try {
+                System.loadLibrary("za_probe");
+                report.append("\\n=== NATIVE PROBE INFO ===\\n")
+                        .append(nativeGetProbeInfo()).append('\\n');
+            } catch (Throwable error) {
+                report.append("\\n=== NATIVE PROBE INFO UNAVAILABLE ===\\n")
+                        .append(error.getClass().getSimpleName()).append(": ")
+                        .append(error.getMessage()).append('\\n');
+            }
+
+            File logFile = new File(getFilesDir(), "za_sdl_diagnostics.log");
+            report.append("\\n=== COMPLETE SDL / VULKAN / GUEST MEMORY LOG ===\\n");
+            if (logFile.isFile()) {
+                byte[] bytes = Files.readAllBytes(logFile.toPath());
+                report.append(new String(bytes, StandardCharsets.UTF_8));
+                report.append("\\n=== END LOG (").append(bytes.length)
+                        .append(" bytes) ===\\n");
+            } else {
+                report.append("No SDL diagnostic log found. Launch SDL3 diagnostic first.\\n");
+            }
+
+            ClipboardManager clipboard =
+                    (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard == null) {
+                status.setText("COPY FAILED: Android clipboard service unavailable.");
+                return;
+            }
+            clipboard.setPrimaryClip(ClipData.newPlainText(
+                    "Pokémon Z-A full diagnostics", report.toString()));
+            status.setText("FULL DIAGNOSTICS COPIED\\n"
+                    + report.length() + " characters copied. Paste the report here in ChatGPT.");
+        } catch (Exception error) {
+            status.setText("FULL DIAGNOSTICS COPY FAILED\\n"
+                    + error.getClass().getSimpleName() + ": " + error.getMessage());
+        }
     }
 
     private void showSdlLog() {

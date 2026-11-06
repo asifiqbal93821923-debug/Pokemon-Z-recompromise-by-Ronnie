@@ -55,6 +55,13 @@ Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000
 - Device: owner supplied the combined log with `ZA_GUEST_MEM result=PASS`.
 - Scope: exact 32-GiB virtual reservation and page protection smoke test only; not upstream fault tracking or runtime integration.
 
+## Full diagnostics clipboard — implementation
+
+- MainActivity includes a **COPY FULL DIAGNOSTICS** action.
+- Copies the entire app-private SDL/Vulkan/guest-memory log without the 30,000-character display truncation, plus capture time, Android/device/ABI metadata, and native probe information when available.
+- Clipboard content is intended to be pasted into the support conversation; it does not upload logs automatically or create a live connection to ChatGPT.
+- Build/device verification is pending for the commit that introduces this feature.
+
 ## Build #30
 
 - Commit: `f23387203c81c6149b4de04642a36b9911d825a3`
