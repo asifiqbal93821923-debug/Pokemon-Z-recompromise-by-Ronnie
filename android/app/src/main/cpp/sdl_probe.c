@@ -57,7 +57,7 @@ int main(int argc, char **argv)
         "Pokemon Z-A Android Diagnostic",
         width,
         height,
-        SDL_WINDOW_FULLSCREEN
+        SDL_WINDOW_FULLSCREEN | SDL_WINDOW_VULKAN
     );
     if (window == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ZA_DIAG_STAGE=WINDOW_FAILED: %s",
@@ -82,8 +82,7 @@ int main(int argc, char **argv)
         SDL_Log("ZA_DIAG_STAGE=renderer_created");
     }
 
-    /* Vulkan probing is deliberately disabled until the basic Android window
-       and renderer lifecycle is confirmed stable on the target device. */
+    /* Vulkan surface capability probe runs before the SDL renderer is created. */
     SDL_Log("ZA_DIAG_STAGE=event_loop_ready");
     bool running = true;
     SDL_Event event;
