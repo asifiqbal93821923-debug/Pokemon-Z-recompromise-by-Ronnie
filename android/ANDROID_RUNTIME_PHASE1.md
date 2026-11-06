@@ -92,3 +92,10 @@ The core compile-check excludes upstream runtime/hle/movie.c because that source
 ### Android realtime clock compatibility
 
 The upstream system-clock HLE uses C11 timespec_get(TIME_UTC), which is not exposed by the current Android Bionic headers in this build configuration. The Android-only source adaptation uses clock_gettime(CLOCK_REALTIME) with a zero-initialized timespec. It retains wall-clock/realtime semantics; it is not replaced with a monotonic clock.
+
+
+## Upstream kernel initialization smoke probe
+
+The diagnostic native library now calls the pinned upstream kernel_init() and kernel_reset() after the Android guest window has been reserved. It runs with zero game modules loaded and logs ZA_RUNTIME_KERNEL result=PASS only after both functions return. This verifies a real runtime-core initialization/reset path against the Android platform backend, but it is not an actual game boot and does not start guest threads or generated code.
+
+The Android AArch64 fiber assembly is built as a dedicated static target so the .S object is guaranteed to be present in the final native link. CI must pass and the device report must include ZA_ANDROID_FIBER result=PASS before this slice is considered phone-verified.
