@@ -47,3 +47,12 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - Destination names are sanitized and prefixed with a random UUID. Failed/incomplete copies are removed; the URI permission is not persisted because the file is copied immediately.
 - The full diagnostics clipboard report now includes the SAF import result, byte count, SHA-256, MIME type and app-private destination.
 - This is an import transport probe only. It does not decrypt, unpack, interpret, or execute imported content; it does not integrate the upstream `runtime/paths.c` data-root policy or make the game playable. Large-file behavior still requires on-device testing with a non-sensitive test file and adequate free space.
+
+
+### Build #61 — persist Android diagnostic summaries across Activity recreation
+
+- MainActivity now restores the Android Storage Bridge and SAF import result strings from app-private SharedPreferences during `onCreate`.
+- Storage probe success/failure and SAF cancellation are persisted when reported.
+- SAF import completion is persisted from the worker thread before posting the UI update, so an Activity recreation after a long copy does not reset the completed import result to “Not run yet”.
+- This stores only short diagnostic summaries (including the existing import byte count, SHA-256 and app-private path); it does not copy or modify imported content.
+- Requires a fresh on-device test: relaunch/recreate the host Activity, then use COPY FULL DIAGNOSTICS and confirm both sections retain their prior results. Existing reports on the current installed APK are not retroactively migrated.

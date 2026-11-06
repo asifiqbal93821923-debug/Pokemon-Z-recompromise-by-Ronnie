@@ -27,6 +27,13 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_DOCUMENT = 4107;
     private int launchCount;
 
+    private void persistDiagnosticReports() {
+        getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
+                .putString("storage_probe_report", storageProbeReport)
+                .putString("saf_import_report", safImportReport)
+                .apply();
+    }
+
     private void recordHostEvent(String event) {
         String line = System.currentTimeMillis() + " HOST_" + event + "\n";
         try (FileOutputStream out = new FileOutputStream(
@@ -41,6 +48,9 @@ public final class MainActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         recordHostEvent("ON_CREATE");
+        android.content.SharedPreferences saved = getSharedPreferences("za_diagnostics", MODE_PRIVATE);
+        storageProbeReport = saved.getString("storage_probe_report", "Not run yet.");
+        safImportReport = saved.getString("saf_import_report", "Not run yet.");
         buildDiagnosticScreen();
         status.setText("Host Activity: created. Main process is alive.");
     }
@@ -97,10 +107,12 @@ public final class MainActivity extends Activity {
                 storageProbeReport = nativeRunStorageProbe(
                         getFilesDir().getAbsolutePath(),
                         getCacheDir().getAbsolutePath(), getAssets());
+                persistDiagnosticReports();
                 status.setText(storageProbeReport);
             } catch (Throwable error) {
                 storageProbeReport = "ANDROID_STORAGE_BRIDGE result=FAIL "
                         + error.getClass().getSimpleName() + ": " + error.getMessage();
+                persistDiagnosticReports();
                 status.setText(storageProbeReport);
             }
         });
@@ -244,15 +256,21 @@ public final class MainActivity extends Activity {
         if (requestCode != REQUEST_IMPORT_DOCUMENT) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             safImportReport = "SAF_IMPORT result=CANCELLED";
+            persistDiagnosticReports();
             status.setText(safImportReport);
             return;
         }
         Uri selected = data.getData();
         status.setText("Import started. Copying selected document into app-private storage...");
         new Thread(() -> {
-            String result = SafImport.copyIntoPrivateStorage(this, selected);
+            String result = SafImport.copyIntoPrivateStorage(getApplicationContext(), selected);
+            // Persist on the worker before posting to the Activity: a recreated or
+            // stopped Activity must not erase a completed multi-GB import result.
+            getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
+                    .putString("saf_import_report", result).apply();
             runOnUiThread(() -> {
                 safImportReport = result;
+                persistDiagnosticReports();
                 status.setText(result);
             });
         }, "za-saf-import").start();
