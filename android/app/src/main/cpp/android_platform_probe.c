@@ -19,10 +19,19 @@ static bool probe_filesystem_api(void)
     char *base = SDL_GetPrefPath("Ronnie", "ZAPlatformProbe");
     if (!base) return false;
     char dir[1024], first[1100], renamed[1100], occupied[1100];
-    bool ok = snprintf(dir, sizeof dir, "%sfs-api-probe", base) > 0 &&
-              snprintf(first, sizeof first, "%s/item.tmp", dir) > 0 &&
-              snprintf(renamed, sizeof renamed, "%s/item.renamed", dir) > 0 &&
-              snprintf(occupied, sizeof occupied, "%s/occupied.tmp", dir) > 0;
+    char target[1100], linkpath[1100];
+    int nd = snprintf(dir, sizeof dir, "%sfs-api-probe", base);
+    bool ok = nd > 0 && (size_t)nd < sizeof dir;
+    int nf = snprintf(first, sizeof first, "%s/item.tmp", dir);
+    int nr = snprintf(renamed, sizeof renamed, "%s/item.renamed", dir);
+    int no = snprintf(occupied, sizeof occupied, "%s/occupied.tmp", dir);
+    int nt = snprintf(target, sizeof target, "%sfs-probe-outside.tmp", base);
+    int nl = snprintf(linkpath, sizeof linkpath, "%s/external-link", dir);
+    ok = ok && nf > 0 && (size_t)nf < sizeof first &&
+         nr > 0 && (size_t)nr < sizeof renamed &&
+         no > 0 && (size_t)no < sizeof occupied &&
+         nt > 0 && (size_t)nt < sizeof target &&
+         nl > 0 && (size_t)nl < sizeof linkpath;
     SDL_free(base);
     if (!ok || mkdir(dir, 0700) != 0) return false;
     int fd = plat_open_file(first, O_CREAT | O_EXCL | O_WRONLY);
@@ -38,8 +47,15 @@ static bool probe_filesystem_api(void)
         errno = 0;
         ok = plat_rename(renamed, occupied) != 0 && errno == EEXIST;
     }
+    int target_fd = plat_open_file(target, O_CREAT | O_EXCL | O_WRONLY);
+    if (target_fd < 0) ok = false;
+    if (target_fd >= 0 && close(target_fd) != 0) ok = false;
+    if (ok && symlink(target, linkpath) != 0) ok = false;
+    if (ok && !plat_is_link(linkpath)) ok = false;
     bool removed = plat_remove_tree(dir);
-    return ok && removed;
+    bool target_preserved = access(target, F_OK) == 0;
+    if (unlink(target) != 0) target_preserved = false;
+    return ok && removed && target_preserved;
 }
 
 int za_run_android_platform_api_probe(void)
