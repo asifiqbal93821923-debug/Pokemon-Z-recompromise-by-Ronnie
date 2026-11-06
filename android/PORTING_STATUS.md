@@ -199,3 +199,14 @@ The upstream movie HLE requires FFmpeg headers/libraries absent from the Android
 ### Realtime clock compatibility
 
 Upstream services/time.c is adapted on Android from timespec_get(TIME_UTC) to clock_gettime(CLOCK_REALTIME), preserving wall-clock timestamp semantics required by the HLE system clock.
+
+
+### Build #110 — Android ARM64 UI source compile gate (2026-11-06)
+
+- Commit: `52b9c234f7ea7fd325bef4fe9d0eb0f4ca73af53`
+- GitHub Actions run: `42253999662`
+- Result: success; exact run `head_sha` matches the commit.
+- Added `za_runtime_ui_compilecheck`, compiling upstream `runtime/ui/*.mm` as C++17 for Android, using the same non-Apple source convention as upstream Linux.
+- The build continues to compile the upstream runtime core and NVN/Vulkan/ImGui source gates, and packages the separate SDL diagnostic APK.
+
+**Not closed by this build:** the UI, renderer and runtime archives are compile gates, not a complete linked game runtime. The APK still uses the SDL diagnostic entry point. No Android shaderc/FFmpeg runtime dependency set, generated game code, actual launcher/renderer wiring, or no-game-data runtime launch has been verified. This build does not need to be installed as a game APK and is not playable.

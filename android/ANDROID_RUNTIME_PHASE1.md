@@ -114,3 +114,20 @@ This is still a compile gate, not a linked or running renderer. It intentionally
 The Android NDK workflow now also compiles every portable upstream `runtime/ui/*.mm` translation unit as C++17, matching the upstream Linux build convention (Apple-only Metal / Objective-C sections remain excluded by `__APPLE__` guards). The gate covers the native launcher and in-game UI sources against SDL3, Dear ImGui, Vulkan headers and the Android NDK.
 
 This is a compile-only static archive. It does not link the launcher into the app, instantiate the NVN renderer, or prove the runtime entry point can launch; missing Android dependencies and lifecycle adaptation remain separate gates.
+
+
+## Build #110 — UI compile gate result
+
+- Commit `52b9c234f7ea7fd325bef4fe9d0eb0f4ca73af53`
+- GitHub Actions run `42253999662` completed successfully for the exact commit.
+- The new Android C++17 UI compile-check target is included in the NDK CMake graph. Core, NVN/Vulkan/ImGui and UI code are separate compile-only archives; they are not linked as the active Android game entry point.
+- The actual Android app still boots `sdl_probe.c`, not upstream `runtime/main.c`.
+
+## Remaining Phase 1 gates after Build #110
+
+1. Create and link a real Android ARM64 runtime target from upstream core + platform backend + UI + Vulkan/NVN renderer and its genuine dependencies. A successful static compile-check is not a substitute.
+2. Replace the diagnostic SDL entry point with an Android-safe upstream runtime entry point; redesign desktop process-relaunch/helper-process assumptions and wire Activity pause/resume/surface loss into runtime and renderer.
+3. Integrate required Android runtime dependencies and generated shader resources without stubs that misreport support (especially shaderc and FFmpeg/movie HLE handling).
+4. Produce and install a runtime APK, then perform the no-game-data smoke launch on the target phone and capture its actual runtime log.
+
+The existing device reports validate the diagnostic harness and platform slices only. Until these four gates pass, Phase 1 remains open and the project is not a playable Android port.
