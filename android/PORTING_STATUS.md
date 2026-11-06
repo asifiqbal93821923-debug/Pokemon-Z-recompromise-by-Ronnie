@@ -87,4 +87,12 @@ No proprietary game data, keys, firmware, generated game code, or copyrighted as
 
 ### Build #47 — upstream feature-gate audit
 
-The diagnostic's `wp_ready` gate now exactly matches the pinned upstream Linux backend: only `UFFD_FEATURE_WP_ASYNC` and `UFFD_FEATURE_WP_UNPOPULATED` are required. `UFFD_FEATURE_PAGEFAULT_FLAG_WP` is logged but is not an additional gate. This corrects a potential false-negative in the probe; the current phone report advertises neither required bit, so the actual device conclusion remains unchanged. Android CI build pending.
+The diagnostic's `wp_ready` gate now exactly matches the pinned upstream Linux backend: only `UFFD_FEATURE_WP_ASYNC` and `UFFD_FEATURE_WP_UNPOPULATED` are required. `UFFD_FEATURE_PAGEFAULT_FLAG_WP` is logged but is not an additional gate. This corrects a potential false-negative in the probe; the current phone report advertises neither required bit, so the actual device conclusion remains unchanged. Build #47 Android ARM64 CI passed on exact commit `8b4b494538f4c235039a3740a1bfbb34fb0eb984`; APK artifact `13486973222` was downloaded and ZIP/APK integrity verified. Device re-test is pending.
+
+
+## Build #47 — verified Android ARM64 artifact
+
+- Workflow run: [#47](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42185300492), conclusion `success`, exact head SHA `8b4b494538f4c235039a3740a1bfbb34fb0eb984`.
+- Artifact: `pokemon-za-android-sdl3-smoke-arm64-debug` (ID `13486973222`); extracted APK size 7,315,806 bytes; SHA-256 `a5d1c692776398ac43c4534bc2ed6e7f8bf3e71a51296b19e3f2f7ae26916992`.
+- ZIP integrity and APK package format verified locally. This is a diagnostic/capability APK, not a playable game.
+- Next: owner installs Build #47 and shares `COPY FULL DIAGNOSTICS` output; then implement the smallest compile-tested Android platform API slice against the pinned upstream contract.

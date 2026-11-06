@@ -50,3 +50,10 @@ OnePlus CPH2943 / Android 16 / arm64-v8a:
 The Build #39 Activity sequence (create/start/resume → pause/stop → start/resume) is consistent with normal background/foreground transitions. It is not evidence of a crash. Surface recreation remains untested.
 
 This validates diagnostic paths only, not the upstream renderer, complete guest-memory semantics, or game runtime.
+
+
+## Build #47 CI artifact
+
+- Android ARM64 workflow run #47 completed successfully against exact commit `8b4b494538f4c235039a3740a1bfbb34fb0eb984`.
+- APK artifact ID `13486973222`; APK ZIP integrity verified; SHA-256 `a5d1c692776398ac43c4534bc2ed6e7f8bf3e71a51296b19e3f2f7ae26916992`.
+- This verifies the isolated diagnostics app compiles. It does not implement or verify the upstream Android platform backend.
