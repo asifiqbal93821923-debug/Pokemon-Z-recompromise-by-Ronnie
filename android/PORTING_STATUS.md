@@ -56,3 +56,12 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - SAF import completion is persisted from the worker thread before posting the UI update, so an Activity recreation after a long copy does not reset the completed import result to “Not run yet”.
 - This stores only short diagnostic summaries (including the existing import byte count, SHA-256 and app-private path); it does not copy or modify imported content.
 - Requires a fresh on-device test: relaunch/recreate the host Activity, then use COPY FULL DIAGNOSTICS and confirm both sections retain their prior results. Existing reports on the current installed APK are not retroactively migrated.
+
+
+### Build #62 — durable diagnostic summaries and existing-import recovery
+
+- Split SharedPreferences persistence for the Storage Bridge and SAF report so updating one result cannot overwrite the other with a stale Activity field.
+- Both report strings are restored during MainActivity creation; completed SAF import results are persisted by the worker before any UI callback.
+- Added “Verify existing imported file (no re-copy)”: scans app-private files/za-import, selects the most recently modified regular non-hidden completed file (excluding .part and symlinks), and recomputes byte count and SHA-256 on a background thread. This allows an APK update to reconstruct the prior import report without copying the multi-gigabyte source again.
+- Existing imports are not automatically re-hashed at launch; the owner explicitly starts verification. The recovery scan currently chooses the newest eligible file if multiple imports exist.
+- On-device verification is required for SharedPreferences restoration and large-file rehash timing. This remains a diagnostic/import utility, not game data parsing or runtime integration.

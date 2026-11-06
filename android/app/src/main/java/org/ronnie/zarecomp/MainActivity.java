@@ -27,11 +27,14 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_DOCUMENT = 4107;
     private int launchCount;
 
-    private void persistDiagnosticReports() {
+    private void persistStorageProbeReport() {
         getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
-                .putString("storage_probe_report", storageProbeReport)
-                .putString("saf_import_report", safImportReport)
-                .apply();
+                .putString("storage_probe_report", storageProbeReport).apply();
+    }
+
+    private void persistSafImportReport() {
+        getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
+                .putString("saf_import_report", safImportReport).apply();
     }
 
     private void recordHostEvent(String event) {
@@ -134,6 +137,22 @@ public final class MainActivity extends Activity {
             }
         });
         root.addView(importButton);
+
+        Button recoverImportButton = new Button(this);
+        recoverImportButton.setText("Verify existing imported file (no re-copy)");
+        recoverImportButton.setOnClickListener(v -> {
+            status.setText("Verifying existing app-private import. Large files may take several minutes...");
+            new Thread(() -> {
+                String result = SafImport.recoverExistingImport(getApplicationContext());
+                getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
+                        .putString("saf_import_report", result).apply();
+                runOnUiThread(() -> {
+                    safImportReport = result;
+                    status.setText(result);
+                });
+            }, "za-saf-recovery").start();
+        });
+        root.addView(recoverImportButton);
 
         Button sdlButton = new Button(this);
         sdlButton.setText("Launch SDL3 diagnostic");

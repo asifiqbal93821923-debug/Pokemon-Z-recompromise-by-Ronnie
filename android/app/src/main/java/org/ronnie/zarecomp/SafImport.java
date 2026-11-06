@@ -8,6 +8,7 @@ import android.os.StatFs;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.Locale;
@@ -95,6 +96,44 @@ final class SafImport {
                     + " message=" + String.valueOf(error.getMessage());
         } finally {
             if (temp != null && temp.exists()) temp.delete();
+        }
+    }
+
+    /** Re-hashes an existing private copy so an APK update can recover its report. */
+    static String recoverExistingImport(Context context) {
+        File importDir = new File(context.getFilesDir(), "za-import");
+        try {
+            if (!importDir.isDirectory() || Files.isSymbolicLink(importDir.toPath()))
+                return "SAF_IMPORT result=FAIL stage=no_safe_import_directory";
+            File[] candidates = importDir.listFiles(file -> file.isFile()
+                    && !file.isHidden() && !file.getName().endsWith(".part")
+                    && !Files.isSymbolicLink(file.toPath()));
+            if (candidates == null || candidates.length == 0)
+                return "SAF_IMPORT result=FAIL stage=no_existing_import";
+            File selected = candidates[0];
+            for (File candidate : candidates) {
+                if (candidate.lastModified() > selected.lastModified()) selected = candidate;
+            }
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long total = 0L;
+            byte[] buffer = new byte[1024 * 1024];
+            try (InputStream input = new FileInputStream(selected)) {
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    if (count == 0) continue;
+                    digest.update(buffer, 0, count);
+                    total += count;
+                }
+            }
+            StringBuilder hex = new StringBuilder(64);
+            for (byte b : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", b & 0xff));
+            return "SAF_IMPORT result=PASS_RECOVERED bytes=" + total
+                    + " sha256=" + hex + " mime=unknown"
+                    + " stored=" + selected.getAbsolutePath()
+                    + " source_uri_used_by_native=no verification=rehash_existing_copy";
+        } catch (Throwable error) {
+            return "SAF_IMPORT result=FAIL stage=recover_existing error="
+                    + error.getClass().getSimpleName() + " message=" + String.valueOf(error.getMessage());
         }
     }
 
