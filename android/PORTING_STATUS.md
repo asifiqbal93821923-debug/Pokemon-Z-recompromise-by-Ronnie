@@ -99,3 +99,13 @@ Owner-supplied diagnostic log from OnePlus CPH2943, Android 16 / SDK 36 / arm64-
 - Executable path remains expected-unsupported pending Java/AssetManager bridge.
 
 **Scope:** These are diagnostic-harness results, not a production game runtime. No NSP parsing/decryption, game asset loading, recompilation, or playable gameplay was demonstrated.
+
+
+### Build #65 — automatic Android Storage Bridge execution (2026-11-06)
+
+- The recovery host now runs the existing small Android private-storage + NDK AssetManager probe automatically after MainActivity is created; the user no longer needs to find or tap the probe button.
+- The probe runs on a background thread, stores its result in app-private SharedPreferences, and leaves the manual retry button available.
+- It checks creation of app-private data/save/cache directories, sentinel file write/read/delete round-trips, and reading the project-authored APK asset through AAssetManager.
+- This changes the diagnostic from “Not run yet” to an actual device result on next launch. PASS is not assumed until the owner supplies the resulting report.
+- Write tracking remains a separate kernel capability limitation: this Android 6.1 device does not advertise the required userfaultfd write-protect features and procfs PAGEMAP_SCAN is denied. The app must not falsely mark it as running or use an unsafe signal-handler substitute. Keep written-page tracking unsupported (-1) until a safe, validated backend exists.
+- No game runtime, NSP parsing/decryption, or gameplay integration is added by this diagnostic change.

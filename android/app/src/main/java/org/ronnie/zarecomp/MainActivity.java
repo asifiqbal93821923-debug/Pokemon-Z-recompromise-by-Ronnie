@@ -26,6 +26,7 @@ public final class MainActivity extends Activity {
     private String safImportReport = "Not run yet.";
     private static final int REQUEST_IMPORT_DOCUMENT = 4107;
     private int launchCount;
+    private boolean storageProbeRunning;
 
     private void persistStorageProbeReport() {
         getSharedPreferences("za_diagnostics", MODE_PRIVATE).edit()
@@ -55,7 +56,33 @@ public final class MainActivity extends Activity {
         storageProbeReport = saved.getString("storage_probe_report", "Not run yet.");
         safImportReport = saved.getString("saf_import_report", "Not run yet.");
         buildDiagnosticScreen();
-        status.setText("Host Activity: created. Main process is alive.");
+        status.setText("Host Activity: created. Running Android storage bridge automatically...");
+        runStorageProbeAsync();
+    }
+
+    /** Run the small private-storage and APK AssetManager probe without requiring a tap. */
+    private void runStorageProbeAsync() {
+        if (storageProbeRunning) return;
+        storageProbeRunning = true;
+        if (status != null) status.setText("ANDROID_STORAGE_BRIDGE running: testing private directories, file round-trip and APK AssetManager...");
+        new Thread(() -> {
+            String result;
+            try {
+                System.loadLibrary("za_probe");
+                result = nativeRunStorageProbe(
+                        getFilesDir().getAbsolutePath(),
+                        getCacheDir().getAbsolutePath(), getAssets());
+            } catch (Throwable error) {
+                result = "ANDROID_STORAGE_BRIDGE result=FAIL "
+                        + error.getClass().getSimpleName() + ": " + error.getMessage();
+            }
+            storageProbeReport = result;
+            persistStorageProbeReport();
+            runOnUiThread(() -> {
+                storageProbeRunning = false;
+                if (status != null) status.setText(result);
+            });
+        }, "za-android-storage-probe").start();
     }
 
     private void buildDiagnosticScreen() {
@@ -104,21 +131,7 @@ public final class MainActivity extends Activity {
 
         Button storageButton = new Button(this);
         storageButton.setText("Run Android storage + AssetManager probe");
-        storageButton.setOnClickListener(v -> {
-            try {
-                System.loadLibrary("za_probe");
-                storageProbeReport = nativeRunStorageProbe(
-                        getFilesDir().getAbsolutePath(),
-                        getCacheDir().getAbsolutePath(), getAssets());
-                persistStorageProbeReport();
-                status.setText(storageProbeReport);
-            } catch (Throwable error) {
-                storageProbeReport = "ANDROID_STORAGE_BRIDGE result=FAIL "
-                        + error.getClass().getSimpleName() + ": " + error.getMessage();
-                persistStorageProbeReport();
-                status.setText(storageProbeReport);
-            }
-        });
+        storageButton.setOnClickListener(v -> runStorageProbeAsync());
         root.addView(storageButton);
 
         Button importButton = new Button(this);
