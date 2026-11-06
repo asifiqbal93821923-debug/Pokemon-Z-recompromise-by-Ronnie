@@ -109,3 +109,18 @@ Owner-supplied diagnostic log from OnePlus CPH2943, Android 16 / SDK 36 / arm64-
 - This changes the diagnostic from “Not run yet” to an actual device result on next launch. PASS is not assumed until the owner supplies the resulting report.
 - Write tracking remains a separate kernel capability limitation: this Android 6.1 device does not advertise the required userfaultfd write-protect features and procfs PAGEMAP_SCAN is denied. The app must not falsely mark it as running or use an unsafe signal-handler substitute. Keep written-page tracking unsupported (-1) until a safe, validated backend exists.
 - No game runtime, NSP parsing/decryption, or gameplay integration is added by this diagnostic change.
+
+
+### Build #67 — owner device report: Android Storage Bridge PASS (2026-11-06)
+
+Owner supplied the Build #67 report from OnePlus CPH2943 / Android 16 (SDK 36) / arm64-v8a:
+
+- `ANDROID_STORAGE_BRIDGE result=PASS`.
+- Private directories: PASS.
+- File write/read round-trip: PASS.
+- APK AssetManager read: PASS.
+- Native JNI library loaded; aarch64, kernel 6.1.157-android14, 8 online CPUs, 4096-byte pages.
+- SAF import in the separate `.storageprobe` package was not run. The previously verified large local Downloads import remains in the separate `.recovery` package; do not uninstall either package or assume cross-package private storage access.
+- SDL/Vulkan/guest-memory log was not present because the SDL3 diagnostic Activity had not yet been launched from this package. Next device action: tap “Launch SDL3 diagnostic”, allow it to finish, then “COPY FULL DIAGNOSTICS” and provide the report.
+
+**Scope:** Storage bridge PASS verifies private directory/file operations and reading a project-authored APK asset. It does not establish NSP parsing/decryption, game asset loading, recompilation, production runtime, or playable gameplay. Write tracking remains blocked pending a safe Android-compatible implementation; do not mark it PASS based on the storage result.
