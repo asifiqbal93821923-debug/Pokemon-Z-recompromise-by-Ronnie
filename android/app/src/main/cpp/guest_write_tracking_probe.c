@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <linux/userfaultfd.h>
 
@@ -16,6 +17,9 @@
 
 #ifndef UFFD_USER_MODE_ONLY
 #define UFFD_USER_MODE_ONLY 1
+#endif
+#ifndef UFFD_FEATURE_PAGEFAULT_FLAG_WP
+#define UFFD_FEATURE_PAGEFAULT_FLAG_WP (1ULL << 0)
 #endif
 #ifndef UFFD_FEATURE_WP_HUGETLBFS_SHMEM
 #define UFFD_FEATURE_WP_HUGETLBFS_SHMEM (1ULL << 12)
@@ -27,7 +31,7 @@
 #define UFFD_FEATURE_WP_ASYNC (1ULL << 15)
 #endif
 
-/* Linux fs.h PAGEMAP_SCAN UAPI. Keep the layout aligned with pm_scan_arg. */
+/* Linux PAGEMAP_SCAN UAPI: struct pm_scan_arg and struct page_region. */
 typedef struct {
     uint64_t start;
     uint64_t end;
@@ -35,28 +39,39 @@ typedef struct {
 } ZaWtRegion;
 
 typedef struct {
-    uint64_t size;
-    uint64_t flags;
-    uint64_t start;
-    uint64_t end;
-    uint64_t walk_end;
-    uint64_t vec;
-    uint64_t vec_len;
-    uint64_t max_pages;
-    uint64_t category_inverted;
-    uint64_t category_mask;
-    uint64_t category_anyof_mask;
-    uint64_t return_mask;
+    uint64_t size, flags, start, end, walk_end, vec, vec_len, max_pages;
+    uint64_t category_inverted, category_mask, category_anyof_mask, return_mask;
 } ZaWtScan;
 
 #define ZA_PAGEMAP_SCAN _IOWR('f', 16, ZaWtScan)
+#define ZA_PAGE_IS_PRESENT (1ULL << 3)
 #define ZA_PAGE_IS_WRITTEN (1ULL << 1)
+#define ZA_PAGEMAP_PRESENT_BIT (1ULL << 63)
 #define ZA_SOFT_DIRTY_BIT (1ULL << 55)
 
 static void log_errno(const char *stage)
 {
+    const int saved_errno = errno;
     SDL_Log("ZA_WRITE_TRACK stage=%s result=FAIL errno=%d message=%s",
-            stage, errno, strerror(errno));
+            stage, saved_errno, strerror(saved_errno));
+}
+
+static bool kernel_version(int *major, int *minor)
+{
+    struct utsname info;
+    if (uname(&info) != 0) {
+        log_errno("uname");
+        return false;
+    }
+    *major = 0;
+    *minor = 0;
+    if (sscanf(info.release, "%d.%d", major, minor) != 2) {
+        SDL_Log("ZA_WRITE_TRACK kernel_release=%s parse=UNKNOWN", info.release);
+        return false;
+    }
+    SDL_Log("ZA_WRITE_TRACK kernel_release=%s parsed=%d.%d",
+            info.release, *major, *minor);
+    return true;
 }
 
 #if defined(SYS_userfaultfd)
@@ -65,206 +80,223 @@ static int open_userfaultfd(void)
     return (int)syscall(SYS_userfaultfd,
                         O_CLOEXEC | O_NONBLOCK | UFFD_USER_MODE_ONLY);
 }
-
-static bool probe_uffd_feature(uint64_t feature, const char *name)
-{
-    int fd = open_userfaultfd();
-    if (fd < 0) {
-        log_errno("feature_probe_open");
-        return false;
-    }
-
-    struct uffdio_api api = {
-        .api = UFFD_API,
-        .features = feature
-    };
-    if (ioctl(fd, UFFDIO_API, &api) < 0) {
-        char stage[96];
-        (void)snprintf(stage, sizeof(stage), "feature_%s_api", name);
-        log_errno(stage);
-        close(fd);
-        return false;
-    }
-
-    bool enabled = (api.features & feature) == feature;
-    SDL_Log("ZA_WRITE_TRACK feature=%s result=%s negotiated=0x%llx",
-            name, enabled ? "PASS" : "NOT_ENABLED",
-            (unsigned long long)api.features);
-    close(fd);
-    return enabled;
-}
 #endif
 
-static void probe_userfaultfd_features(void)
+static uint64_t probe_userfaultfd_features(void)
 {
 #if !defined(SYS_userfaultfd)
     SDL_Log("ZA_WRITE_TRACK userfaultfd=UNAVAILABLE reason=SYS_userfaultfd_not_defined");
+    return 0;
 #else
     int fd = open_userfaultfd();
     if (fd < 0) {
         log_errno("userfaultfd_open");
         SDL_Log("ZA_WRITE_TRACK userfaultfd=UNAVAILABLE");
-        return;
+        return 0;
     }
-    SDL_Log("ZA_WRITE_TRACK userfaultfd_open=PASS fd=%d", fd);
 
-    /*
-     * UFFDIO_API is a one-time initialization ioctl per descriptor.
-     * Query with features=0, close this descriptor, then test each
-     * advertised feature on a fresh descriptor.
-     */
-    struct uffdio_api query = {
-        .api = UFFD_API,
-        .features = 0
-    };
-    if (ioctl(fd, UFFDIO_API, &query) < 0) {
+    SDL_Log("ZA_WRITE_TRACK userfaultfd_open=PASS fd=%d", fd);
+    struct uffdio_api api = {.api = UFFD_API, .features = 0};
+    if (ioctl(fd, UFFDIO_API, &api) < 0) {
         log_errno("uffdio_api_query_features_zero");
         close(fd);
-        return;
+        return 0;
     }
 
-    const uint64_t available = query.features;
+    const uint64_t available = api.features;
     SDL_Log("ZA_WRITE_TRACK uffdio_api_query=PASS available_features=0x%llx generic_ioctls=0x%llx",
-            (unsigned long long)available,
-            (unsigned long long)query.ioctls);
+            (unsigned long long)available, (unsigned long long)api.ioctls);
     close(fd);
 
-    const bool wp_async_advertised =
-        (available & UFFD_FEATURE_WP_ASYNC) != 0;
-    const bool wp_unpopulated_advertised =
-        (available & UFFD_FEATURE_WP_UNPOPULATED) != 0;
-
-    SDL_Log("ZA_WRITE_TRACK feature_advertised=WP_ASYNC value=%s",
-            wp_async_advertised ? "yes" : "no");
-    SDL_Log("ZA_WRITE_TRACK feature_advertised=WP_UNPOPULATED value=%s",
-            wp_unpopulated_advertised ? "yes" : "no");
-
-    if (wp_async_advertised)
-        (void)probe_uffd_feature(UFFD_FEATURE_WP_ASYNC, "WP_ASYNC");
-    else
-        SDL_Log("ZA_WRITE_TRACK feature=WP_ASYNC result=UNSUPPORTED_NOT_ADVERTISED");
-
-    if (wp_unpopulated_advertised)
-        (void)probe_uffd_feature(UFFD_FEATURE_WP_UNPOPULATED, "WP_UNPOPULATED");
-    else
-        SDL_Log("ZA_WRITE_TRACK feature=WP_UNPOPULATED result=UNSUPPORTED_NOT_ADVERTISED");
+    const struct {
+        const char *name;
+        uint64_t bit;
+    } features[] = {
+        {"PAGEFAULT_FLAG_WP", UFFD_FEATURE_PAGEFAULT_FLAG_WP},
+        {"WP_HUGETLBFS_SHMEM", UFFD_FEATURE_WP_HUGETLBFS_SHMEM},
+        {"WP_UNPOPULATED", UFFD_FEATURE_WP_UNPOPULATED},
+        {"WP_ASYNC", UFFD_FEATURE_WP_ASYNC}
+    };
+    for (size_t i = 0; i < sizeof(features) / sizeof(features[0]); ++i) {
+        SDL_Log("ZA_WRITE_TRACK feature=%s advertised=%s",
+                features[i].name,
+                (available & features[i].bit) ? "yes" : "no");
+    }
+    return available;
 #endif
 }
 
-static void probe_pagemap_scan_and_soft_dirty(void)
+static void probe_soft_dirty(size_t page_size)
 {
+#if defined(__aarch64__)
+    SDL_Log("ZA_WRITE_TRACK soft_dirty_arch=arm64 kernel_6_1_stock_support=not_expected vendor_backport=unknown");
+#endif
+    void *pages = mmap(NULL, page_size * 3, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (pages == MAP_FAILED) {
+        log_errno("soft_dirty_test_mmap");
+        return;
+    }
+
+    volatile uint32_t *words = (volatile uint32_t *)pages;
+    for (size_t i = 0; i < 3; ++i)
+        words[(i * page_size) / sizeof(uint32_t)] = UINT32_C(0x5A413100) + (uint32_t)i;
+
+    int clear_refs = open("/proc/self/clear_refs", O_WRONLY | O_CLOEXEC);
+    if (clear_refs < 0) {
+        log_errno("soft_dirty_open_clear_refs");
+        (void)munmap(pages, page_size * 3);
+        return;
+    }
+
+    const char command = '4';
+    const ssize_t cleared = write(clear_refs, &command, 1);
+    close(clear_refs);
+    if (cleared != 1) {
+        if (cleared >= 0) errno = EIO;
+        log_errno("soft_dirty_clear_refs_write");
+        (void)munmap(pages, page_size * 3);
+        return;
+    }
+
+    /* Volatile stores occur strictly after clear_refs has returned. */
+    for (size_t i = 0; i < 3; ++i)
+        words[(i * page_size) / sizeof(uint32_t)] = UINT32_C(0x5A413200) + (uint32_t)i;
+
+    int pagemap = open("/proc/self/pagemap", O_RDONLY | O_CLOEXEC);
+    if (pagemap < 0) {
+        log_errno("soft_dirty_open_pagemap");
+        (void)munmap(pages, page_size * 3);
+        return;
+    }
+
+    unsigned int present_count = 0;
+    unsigned int dirty_count = 0;
+    for (size_t i = 0; i < 3; ++i) {
+        const uint64_t address = (uint64_t)(uintptr_t)pages + i * (uint64_t)page_size;
+        const uint64_t page_index = address / (uint64_t)page_size;
+        const off_t offset = (off_t)(page_index * sizeof(uint64_t));
+        uint64_t entry = 0;
+        const ssize_t count = pread(pagemap, &entry, sizeof(entry), offset);
+        if (count != (ssize_t)sizeof(entry)) {
+            if (count >= 0) errno = EIO;
+            log_errno("soft_dirty_read_pagemap_entry");
+            continue;
+        }
+        if (entry & ZA_PAGEMAP_PRESENT_BIT) ++present_count;
+        if (entry & ZA_SOFT_DIRTY_BIT) ++dirty_count;
+        SDL_Log("ZA_WRITE_TRACK soft_dirty_page=%zu present=%s bit55=%s entry=0x%llx",
+                i, (entry & ZA_PAGEMAP_PRESENT_BIT) ? "yes" : "no",
+                (entry & ZA_SOFT_DIRTY_BIT) ? "SET" : "NOT_SET",
+                (unsigned long long)entry);
+    }
+    close(pagemap);
+    SDL_Log("ZA_WRITE_TRACK soft_dirty_summary present=%u/3 dirty=%u/3 result=%s",
+            present_count, dirty_count,
+            dirty_count ? "OBSERVED" : "NOT_OBSERVED");
+    (void)munmap(pages, page_size * 3);
+}
+
+static bool probe_pagemap_scan_generic(size_t page_size)
+{
+    void *page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (page == MAP_FAILED) {
+        log_errno("pagemap_scan_test_mmap");
+        return false;
+    }
+    *(volatile uint32_t *)page = UINT32_C(0x5A413303);
+
+    int fd = open("/proc/self/pagemap", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        log_errno("pagemap_scan_open_pagemap");
+        (void)munmap(page, page_size);
+        return false;
+    }
+
+    ZaWtRegion regions[4] = {{0}};
+    ZaWtScan scan = {
+        .size = sizeof(scan),
+        .flags = 0,
+        .start = (uint64_t)(uintptr_t)page,
+        .end = (uint64_t)(uintptr_t)page + (uint64_t)page_size,
+        .walk_end = 0,
+        .vec = (uint64_t)(uintptr_t)regions,
+        .vec_len = 4,
+        .max_pages = 0,
+        .category_inverted = 0,
+        .category_mask = ZA_PAGE_IS_PRESENT,
+        .category_anyof_mask = 0,
+        .return_mask = ZA_PAGE_IS_PRESENT
+    };
+
+    const long found = ioctl(fd, ZA_PAGEMAP_SCAN, &scan);
+    if (found < 0) {
+        const int err = errno;
+        log_errno("pagemap_scan_generic_ioctl");
+        if (err == EACCES || err == EPERM) {
+            SDL_Log("ZA_WRITE_TRACK pagemap_scan_generic=BLOCKED_BY_PROCFS_OR_SELINUX_POLICY");
+        } else if (err == ENOTTY) {
+            SDL_Log("ZA_WRITE_TRACK pagemap_scan_generic=UNSUPPORTED_IOCTL");
+        } else if (err == EINVAL) {
+            SDL_Log("ZA_WRITE_TRACK pagemap_scan_generic=UAPI_OR_KERNEL_MISMATCH");
+        } else {
+            SDL_Log("ZA_WRITE_TRACK pagemap_scan_generic=ERROR errno=%d", err);
+        }
+        close(fd);
+        (void)munmap(page, page_size);
+        return false;
+    }
+
+    bool present = false;
+    for (long i = 0; i < found && i < 4; ++i) {
+        if (regions[i].start <= (uint64_t)(uintptr_t)page &&
+            regions[i].end >= (uint64_t)(uintptr_t)page + (uint64_t)page_size &&
+            (regions[i].categories & ZA_PAGE_IS_PRESENT)) {
+            present = true;
+            break;
+        }
+    }
+    SDL_Log("ZA_WRITE_TRACK pagemap_scan_generic=CALL_PASS regions=%ld walk_end=0x%llx test_page_present=%s",
+            found, (unsigned long long)scan.walk_end, present ? "yes" : "no");
+    close(fd);
+    (void)munmap(page, page_size);
+    return true;
+}
+
+void za_run_guest_write_tracking_probe(void)
+{
+    SDL_Log("ZA_WRITE_TRACK stage=capability_probe_start scope=isolated_diagnostics");
+    int major = 0, minor = 0;
+    const bool version_known = kernel_version(&major, &minor);
+    if (version_known && (major < 6 || (major == 6 && minor < 7))) {
+        SDL_Log("ZA_WRITE_TRACK pagemap_scan_upstream_kernel_support=NO base_kernel_before_6_7 vendor_backport=unverified");
+    } else {
+        SDL_Log("ZA_WRITE_TRACK pagemap_scan_upstream_kernel_support=possible vendor_kernel_runtime_probe_required");
+    }
+
+    const uint64_t features = probe_userfaultfd_features();
+    const bool wp_ready =
+        (features & UFFD_FEATURE_PAGEFAULT_FLAG_WP) &&
+        (features & UFFD_FEATURE_WP_ASYNC) &&
+        (features & UFFD_FEATURE_WP_UNPOPULATED);
+
     const long page_size_long = sysconf(_SC_PAGESIZE);
     if (page_size_long <= 0) {
         errno = EINVAL;
         log_errno("tracking_page_size");
         return;
     }
-
     const size_t page_size = (size_t)page_size_long;
-    void *page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (page == MAP_FAILED) {
-        log_errno("tracking_test_page_mmap");
-        return;
-    }
 
-    volatile uint32_t *word = (volatile uint32_t *)page;
-    *word = UINT32_C(0x5A413031);
-
-    int clear_refs = open("/proc/self/clear_refs", O_WRONLY | O_CLOEXEC);
-    if (clear_refs < 0) {
-        log_errno("soft_dirty_open_clear_refs");
+    probe_soft_dirty(page_size);
+    const bool scan_callable = probe_pagemap_scan_generic(page_size);
+    if (!wp_ready) {
+        SDL_Log("ZA_WRITE_TRACK pagemap_scan_written=SKIPPED_MISSING_UFFD_WP_FEATURES");
+    } else if (!scan_callable) {
+        SDL_Log("ZA_WRITE_TRACK pagemap_scan_written=SKIPPED_GENERIC_SCAN_UNAVAILABLE");
     } else {
-        const char clear_command[] = "4";
-        ssize_t written = write(clear_refs, clear_command, 1);
-        if (written != 1) {
-            if (written >= 0) errno = EIO;
-            log_errno("soft_dirty_clear_refs_write");
-        } else {
-            *word = UINT32_C(0x5A413032);
-
-            int pagemap = open("/proc/self/pagemap", O_RDONLY | O_CLOEXEC);
-            if (pagemap < 0) {
-                log_errno("soft_dirty_open_pagemap");
-            } else {
-                const uint64_t page_index =
-                    (uint64_t)(uintptr_t)page / (uint64_t)page_size;
-                const off_t offset = (off_t)(page_index * sizeof(uint64_t));
-                uint64_t entry = 0;
-                ssize_t count = pread(pagemap, &entry, sizeof(entry), offset);
-                if (count != (ssize_t)sizeof(entry)) {
-                    if (count >= 0) errno = EIO;
-                    log_errno("soft_dirty_read_pagemap_entry");
-                } else {
-                    const bool dirty = (entry & ZA_SOFT_DIRTY_BIT) != 0;
-                    SDL_Log("ZA_WRITE_TRACK soft_dirty_bit55=%s pagemap_entry=0x%llx",
-                            dirty ? "SET" : "NOT_SET",
-                            (unsigned long long)entry);
-                    SDL_Log("ZA_WRITE_TRACK soft_dirty_result=%s",
-                            dirty ? "PASS" : "FAIL");
-                }
-                close(pagemap);
-            }
-        }
-        close(clear_refs);
+        SDL_Log("ZA_WRITE_TRACK pagemap_scan_written=NOT_IMPLEMENTED_IN_CAPABILITY_PROBE");
     }
-
-    /*
-     * PAGEMAP_SCAN is independent of userfaultfd. The test page is
-     * written after clear_refs above; unsupported kernels commonly
-     * return ENOTTY for this ioctl.
-     */
-    int pagemap_scan_fd = open("/proc/self/pagemap", O_RDONLY | O_CLOEXEC);
-    if (pagemap_scan_fd < 0) {
-        log_errno("pagemap_scan_open_pagemap");
-    } else {
-        ZaWtRegion regions[4];
-        ZaWtScan scan = {
-            .size = sizeof(scan),
-            .flags = 0,
-            .start = (uint64_t)(uintptr_t)page,
-            .end = (uint64_t)(uintptr_t)page + (uint64_t)page_size,
-            .walk_end = 0,
-            .vec = (uint64_t)(uintptr_t)regions,
-            .vec_len = 4,
-            .max_pages = 0,
-            .category_inverted = 0,
-            .category_mask = ZA_PAGE_IS_WRITTEN,
-            .category_anyof_mask = 0,
-            .return_mask = ZA_PAGE_IS_WRITTEN
-        };
-        long found = ioctl(pagemap_scan_fd, ZA_PAGEMAP_SCAN, &scan);
-        if (found < 0) {
-            log_errno("pagemap_scan_ioctl");
-            if (errno == ENOTTY || errno == EINVAL)
-                SDL_Log("ZA_WRITE_TRACK pagemap_scan_result=UNSUPPORTED_OR_UAPI_MISMATCH");
-        } else {
-            bool written_page_found = false;
-            for (long i = 0; i < found && i < 4; ++i) {
-                if (regions[i].start <= (uint64_t)(uintptr_t)page &&
-                    regions[i].end >= (uint64_t)(uintptr_t)page + (uint64_t)page_size &&
-                    (regions[i].categories & ZA_PAGE_IS_WRITTEN) != 0) {
-                    written_page_found = true;
-                    break;
-                }
-            }
-            SDL_Log("ZA_WRITE_TRACK pagemap_scan_ioctl=PASS regions=%ld walk_end=0x%llx written_page=%s",
-                    found, (unsigned long long)scan.walk_end,
-                    written_page_found ? "yes" : "no");
-            SDL_Log("ZA_WRITE_TRACK pagemap_scan_result=%s",
-                    written_page_found ? "PASS" : "NO_WRITTEN_PAGE_REPORTED");
-        }
-        close(pagemap_scan_fd);
-    }
-
-    (void)munmap(page, page_size);
-    SDL_Log("ZA_WRITE_TRACK pagemap_soft_dirty_probe_cleanup=PASS");
-}
-
-void za_run_guest_write_tracking_probe(void)
-{
-    SDL_Log("ZA_WRITE_TRACK stage=capability_probe_start page_scope=one_page");
-    probe_userfaultfd_features();
-    probe_pagemap_scan_and_soft_dirty();
     SDL_Log("ZA_WRITE_TRACK result=CAPABILITY_REPORT_COMPLETE");
 }
