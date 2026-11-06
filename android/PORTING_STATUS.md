@@ -56,7 +56,7 @@ This confirms the diagnostic path only. It does not prove the upstream game rend
 
 ## Next engineering milestone
 
-Do not label the current app as a port. First pin and review the exact upstream `pokemon-za` commit, license and dependency versions. Then create a separate Android runtime integration branch/patch series with:
+Do not label the current app as a port. The upstream audit is now pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). Its `runtime/rt.h` defines the non-Apple guest window as `0x7000000000`–`0x7800000000`, a 32-GiB reservation. The most important next gate is to test exact-range reservation/protection/reset in the SDL app process before importing runtime code. Then create a separate Android runtime integration branch/patch series with:
 
 1. An explicit Android NDK build target that leaves desktop targets unchanged.
 2. A minimal, compile-tested Android implementation of the upstream platform contract.
