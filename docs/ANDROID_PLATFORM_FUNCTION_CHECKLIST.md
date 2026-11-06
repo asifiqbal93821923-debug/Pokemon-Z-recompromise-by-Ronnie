@@ -9,28 +9,28 @@ This is a function-by-function implementation plan. It is not an implementation 
 
 | API | Android implementation plan | Initial status |
 |---|---|---|
-| `plat_reserve_guest(lo, hi)` | Bionic `mmap` with exact-address, no-replace semantics; verify full range and alignment | Isolated 32-GiB reservation probe PASS; production API not implemented |
-| `plat_commit(addr, size)` | Validate range/alignment; preserve upstream backing/commit semantics | One-page smoke test PASS; production API not implemented |
-| `plat_reset_guest(lo, hi)` | Safe decommit/reset semantics while retaining reservation; requires source-level parity review | Not implemented |
-| `plat_written_pages(...)` | Return `-1` unless exact safe tracking semantics are available | Unsupported on tested device |
+| `plat_reserve_guest(lo, hi)` | Bionic `mmap` with exact-address, no-replace semantics; verify full range and alignment | Android slice linked to diagnostic JNI; Build #53 device PASS |
+| `plat_commit(addr, size)` | Validate range/alignment; preserve upstream backing/commit semantics | Android slice linked to diagnostic JNI; Build #53 device PASS |
+| `plat_reset_guest(lo, hi)` | Safe decommit/reset semantics while retaining reservation; requires source-level parity review | Android slice linked to diagnostic JNI; one-page reset-to-zero Build #53 PASS; full-range stress/reboot semantics still need review |
+| `plat_written_pages(...)` | Return `-1` unless exact safe tracking semantics are available | Implemented explicit unsupported return `-1`; Build #53 device capability evidence supports this |
 | `plat_mem_usage(...)` | Use supported Android process metrics only; otherwise false | Not implemented |
 | `plat_sample_focus()` | No-op on Android unless profiling requires a supported implementation | Not implemented |
 | `plat_write_tracking_off(why)` | Linux-only API; no Android declaration unless upstream contract changes | Not applicable |
-| `plat_written_pages_peek(...)` | Return `-1` while tracking unavailable | Not implemented |
+| `plat_written_pages_peek(...)` | Return `-1` while tracking unavailable | Implemented explicit unsupported return `-1`; not separately exercised by Build #53 |
 | `plat_page_state(...)` | Return false unless page residency/state can be reported accurately | Not implemented |
-| `plat_protect(addr,size,prot)` | Bionic `mprotect`; validate guest range, page alignment and enum mapping | One-page protection smoke test PASS; production API not implemented |
+| `plat_protect(addr,size,prot)` | Bionic `mprotect`; validate guest range, page alignment and enum mapping | Android slice linked to diagnostic JNI; Build #53 device PASS incl. outside-range rejection |
 
 ## Time and scheduling
 
 | API | Android implementation plan | Initial status |
 |---|---|---|
-| `plat_now_ns()` | `clock_gettime(CLOCK_MONOTONIC)` with overflow-safe conversion | Diagnostic clock read only |
-| `plat_sleep_until_ns(t)` | Absolute monotonic sleep; handle EINTR and Android behavior | Not implemented |
+| `plat_now_ns()` | `clock_gettime(CLOCK_MONOTONIC)` with overflow-safe conversion | Android slice linked to diagnostic JNI; Build #53 device PASS |
+| `plat_sleep_until_ns(t)` | Absolute monotonic sleep; handle EINTR and Android behavior | Android slice linked to diagnostic JNI; Build #53 device PASS |
 | `plat_thread_realtime(period)` | Conservative supported pthread policy; never assume privileged real-time access | Not implemented |
 | `plat_thread_realtime_check(period)` | Return -1 where policy state cannot be reliably checked | Not implemented |
-| `plat_cpu_count()` | Count CPUs available to process using supported affinity/sysconf path | Diagnostic reports 8 online CPUs; API not implemented |
+| `plat_cpu_count()` | Count CPUs available to process using supported affinity/sysconf path | Android slice linked to diagnostic JNI; Build #53 device PASS (8 available) |
 | `plat_thread_guest(prio)` | Map priorities conservatively; tolerate policy denial | Not implemented |
-| `plat_thread_cpu_ns()` | `CLOCK_THREAD_CPUTIME_ID` if supported | Not implemented |
+| `plat_thread_cpu_ns()` | `CLOCK_THREAD_CPUTIME_ID` if supported | Android slice linked to diagnostic JNI; Build #53 device PASS |
 | `plat_thread_perf_core(role)` | Header provides non-Windows inline no-op | No separate function needed |
 
 ## Process, system and files
@@ -93,3 +93,10 @@ OnePlus CPH2943, Android 16 / SDK 36, arm64-v8a, kernel
 7. Only then link the backend into the upstream runtime target.
 
 No ROM/NSP/XCI, keys, firmware, proprietary game assets, generated game code or saves belong in this repository.
+
+
+## Build #53 device verification
+
+The owner supplied the complete Build #53 report from OnePlus CPH2943 / Android 16 / SDK 36 / arm64-v8a. `ZA_PLATFORM_API result=PASS` confirms the linked diagnostic Android slice passed reservation, commit/write/readback, read-only and PROT_NONE protection, reset-to-zero, out-of-range rejection, monotonic/thread CPU clocks, absolute sleep, CPU count (8), and release. The same run reconfirmed Vulkan first-frame presentation and SDL3 multitouch.
+
+This is not upstream game-runtime integration. The backend is linked only to the diagnostic JNI library. The write-tracking functions remain explicitly unsupported (-1) because the tested kernel does not advertise the required userfaultfd WP features and PAGEMAP_SCAN is blocked by EACCES.
