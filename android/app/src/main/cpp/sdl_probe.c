@@ -4,6 +4,7 @@
 #include "vulkan_probe.h"
 #include "guest_memory_probe.h"
 #include "guest_write_tracking_probe.h"
+#include "android_platform_probe.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
     SDL_Log("ZA_DIAG_STAGE=native_log_capture_ready path=%s",
             log_directory != NULL ? log_directory : "(unavailable)");
     SDL_Log("ZA_DIAG_STAGE=starting SDL3");
+    (void)za_run_android_platform_api_probe();
     za_run_guest_memory_probe();
     za_run_guest_write_tracking_probe();
 
