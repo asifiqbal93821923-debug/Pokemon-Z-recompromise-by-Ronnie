@@ -84,3 +84,18 @@ The owner supplied the Build #64 report from OnePlus CPH2943 / Android 16 / arm6
 - Android Storage Bridge was not run in this report. SDL/Vulkan/guest-memory diagnostics were also not run in this report.
 
 **Scope:** successful local SAF import proves only byte copying and checksum integrity. It does not parse, decrypt, unpack, or execute the NSP, and it does not establish game compatibility or playable gameplay.
+
+### Build #64 — SDL3 / Vulkan / Guest Memory phone report (2026-11-06)
+
+Owner-supplied diagnostic log from OnePlus CPH2943, Android 16 / SDK 36 / arm64-v8a:
+
+- Android platform diagnostic API slice: PASS (system info, exact 32 GiB guest reservation, commit/readback/protection/reset, range rejection, clocks/sleep/CPU count, filesystem operations, release).
+- Guest memory probe: PASS for exact reservation at `0x7000000000`, page commit, write/readback, read-only and no-access protection, release.
+- Vulkan: Android loader and instance created; Android surface created; Mali-G615 MC2 (API 1.3.247); logical device and graphics/present queues created; 2400x1080 swapchain with 6 images; first blue frame presented.
+- SDL3 window, renderer, event loop and single-/multi-touch input events: PASS.
+- SAF local Downloads import: PASS, 4,325,966,911 bytes, SHA-256 `c494c0f9225370e6e39d4c6634b0be1cbc74af087bb87ef9b271594ce84f2521`.
+- Android Storage Bridge remains NOT RUN in this report.
+- Write tracking limitations observed: required userfaultfd write-protect features are not advertised; generic PAGEMAP_SCAN ioctl returns EACCES / Permission denied. Do not report written-page tracking as supported; retain unsupported status until a safe Android-compatible implementation is validated.
+- Executable path remains expected-unsupported pending Java/AssetManager bridge.
+
+**Scope:** These are diagnostic-harness results, not a production game runtime. No NSP parsing/decryption, game asset loading, recompilation, or playable gameplay was demonstrated.
