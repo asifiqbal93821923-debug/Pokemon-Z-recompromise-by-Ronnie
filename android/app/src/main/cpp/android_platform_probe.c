@@ -1,6 +1,10 @@
 #include "android_platform_probe.h"
 #include "platform.h"
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <stdint.h>
 #include <sys/mman.h>
 #include <time.h>
@@ -9,6 +13,34 @@
 #define ZA_GUEST_LO 0x7000000000ull
 #define ZA_GUEST_HI 0x7800000000ull
 #define ZA_PROBE_PATTERN 0x5A41304Du
+
+static bool probe_filesystem_api(void)
+{
+    char *base = SDL_GetPrefPath("Ronnie", "ZAPlatformProbe");
+    if (!base) return false;
+    char dir[1024], first[1100], renamed[1100], occupied[1100];
+    bool ok = snprintf(dir, sizeof dir, "%sfs-api-probe", base) > 0 &&
+              snprintf(first, sizeof first, "%s/item.tmp", dir) > 0 &&
+              snprintf(renamed, sizeof renamed, "%s/item.renamed", dir) > 0 &&
+              snprintf(occupied, sizeof occupied, "%s/occupied.tmp", dir) > 0;
+    SDL_free(base);
+    if (!ok || mkdir(dir, 0700) != 0) return false;
+    int fd = plat_open_file(first, O_CREAT | O_EXCL | O_WRONLY);
+    const char payload[] = "ZA_ANDROID_PLATFORM_FS_V1";
+    ok = fd >= 0 && write(fd, payload, sizeof payload) == (ssize_t)sizeof payload;
+    if (fd >= 0 && close(fd) != 0) ok = false;
+    if (ok) ok = !plat_is_link(first);
+    if (ok) ok = plat_rename(first, renamed) == 0;
+    int occupied_fd = plat_open_file(occupied, O_CREAT | O_EXCL | O_WRONLY);
+    if (occupied_fd < 0) ok = false;
+    if (occupied_fd >= 0) close(occupied_fd);
+    if (ok) {
+        errno = 0;
+        ok = plat_rename(renamed, occupied) != 0 && errno == EEXIST;
+    }
+    bool removed = plat_remove_tree(dir);
+    return ok && removed;
+}
 
 int za_run_android_platform_api_probe(void)
 {
@@ -106,11 +138,18 @@ int za_run_android_platform_api_probe(void)
     }
     SDL_Log("ZA_PLATFORM_API stage=time_sleep_cpu_count result=PASS cpus=%d", cpus);
 
+    if (!probe_filesystem_api()) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ZA_PLATFORM_API stage=filesystem result=FAIL errno=%d", errno);
+        (void)munmap((void *)(uintptr_t)ZA_GUEST_LO, (size_t)(ZA_GUEST_HI - ZA_GUEST_LO));
+        return 13;
+    }
+    SDL_Log("ZA_PLATFORM_API stage=filesystem result=PASS open,rename_noreplace,is_link,remove_tree");
+
     if (munmap((void *)(uintptr_t)ZA_GUEST_LO, (size_t)(ZA_GUEST_HI - ZA_GUEST_LO)) != 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "ZA_PLATFORM_API stage=release result=FAIL errno=%d", errno);
         return 10;
     }
-    SDL_Log("ZA_PLATFORM_API result=PASS stages=init,system_info,exe_path_unsupported,reserve,commit,write_readback,protect_read,protect_none,reset_zero,reject_outside_range,monotonic,thread_cpu,absolute_sleep,cpu_count,release");
+    SDL_Log("ZA_PLATFORM_API result=PASS stages=init,system_info,exe_path_unsupported,reserve,commit,write_readback,protect_read,protect_none,reset_zero,reject_outside_range,monotonic,thread_cpu,absolute_sleep,cpu_count,filesystem,release");
     return 0;
 }

@@ -1,5 +1,9 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <string.h>
 #include <pthread.h>
 #include <sched.h>
@@ -112,6 +116,55 @@ bool plat_exe_path(char *buf, size_t size) {
     // Returning false prevents the desktop resource-path logic from treating it as an application bundle.
     if (buf && size) buf[0] = 0;
     return false;
+}
+
+static bool remove_tree_entry(const char *path) {
+    struct stat st;
+    if (lstat(path, &st) != 0) return errno == ENOENT;
+    if (!S_ISDIR(st.st_mode)) return unlink(path) == 0 || errno == ENOENT;
+    DIR *dir = opendir(path);
+    if (!dir) return false;
+    bool ok = true;
+    struct dirent *entry;
+    while (ok && (entry = readdir(dir))) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+        char child[4096];
+        int n = snprintf(child, sizeof child, "%s/%s", path, entry->d_name);
+        if (n < 0 || (size_t)n >= sizeof child || !remove_tree_entry(child)) ok = false;
+    }
+    int saved = errno;
+    if (closedir(dir) != 0) ok = false;
+    errno = saved;
+    return ok && (rmdir(path) == 0 || errno == ENOENT);
+}
+
+bool plat_remove_tree(const char *dir) {
+    if (!dir || !*dir) { errno = EINVAL; return false; }
+    return remove_tree_entry(dir);
+}
+
+bool plat_is_link(const char *path) {
+    struct stat st;
+    return path && lstat(path, &st) == 0 && !S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode);
+}
+
+bool plat_onedrive_synced(const char *dir) { (void)dir; return false; }
+
+int plat_open_file(const char *path, int flags) {
+    if (!path) { errno = EINVAL; return -1; }
+    return open(path, flags | O_CLOEXEC, 0644);
+}
+
+int plat_rename(const char *from, const char *to) {
+    if (!from || !to) { errno = EINVAL; return -1; }
+#if defined(SYS_renameat2)
+    return (int)syscall(SYS_renameat2, AT_FDCWD, from, AT_FDCWD, to, 1u /* RENAME_NOREPLACE */);
+#else
+    struct stat st;
+    if (lstat(to, &st) == 0) { errno = EEXIST; return -1; }
+    if (errno != ENOENT) return -1;
+    return rename(from, to);
+#endif
 }
 
 void plat_os_name(char *buf, size_t size) {
