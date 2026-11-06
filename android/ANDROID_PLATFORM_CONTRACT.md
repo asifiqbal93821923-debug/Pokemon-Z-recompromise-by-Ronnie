@@ -1,14 +1,14 @@
 # Android Platform Layer — Implementation Contract
 
-This file translates the upstream `runtime/platform.h` interface into Android implementation requirements. It is a design checklist, not an implementation.
+This file translates the pinned upstream `runtime/platform.h` interface into Android implementation requirements. It is a design checklist, not an implementation.
 
 ## Runtime contract
 
 | API area | Android approach | Initial support policy |
 |---|---|---|
-| Guest address space | Use NDK-supported `mmap`/ `mprotect` only after testing exact guest range and collision behavior | Required; fail safely if exact range cannot be reserved |
+| Guest address space | Use NDK-supported `mmap`/`mprotect` only after testing exact guest range and collision behavior | Required; fail safely if exact range cannot be reserved |
 | Commit/reset | Preserve upstream guest memory semantics; verify page alignment and Android page size | Required |
-| Written-page tracking | Do not assume `userfaultfd` or `PAGEMAP_SCAN` availability | Return `-1` / unsupported initially |
+| Written-page tracking | Do not assume `userfaultfd` or `PAGEMAP_SCAN` availability | Return `-1` / unsupported initially on tested device |
 | Memory usage/page state | Use supported process metrics only | Unknown/false where unavailable |
 | Monotonic time | `clock_gettime(CLOCK_MONOTONIC)` | Required |
 | Sleep | Android/Bionic-supported clock sleep; handle interruption | Required |
@@ -50,9 +50,16 @@ This file translates the upstream `runtime/platform.h` interface into Android im
 6. SAF selection can read a test file safely; no proprietary game file is needed for this test.
 7. Only then proceed to runtime/game-data integration.
 
-
 ## Device evidence update — 2026-11-06
 
-Build #30 was exercised on the owner's Android phone. The supplied log confirms Vulkan loader/instance, Android surface, Mali-G615 MC2 physical-device detection, graphics/present queue family 0, logical-device creation, a 2400×1080 swapchain with six images, and successful presentation of a blue first frame. SDL3 event loop and multi-pointer touch events were also observed.
+Owner-supplied Build #39 diagnostics from OnePlus CPH2943 / Android 16 / arm64-v8a reconfirm:
 
-This evidence validates the probe path only. It does not validate upstream renderer compatibility, guest-memory semantics, or game runtime execution. The next acceptance gate remains a separately compiled Android platform backend plus an exact guest-memory reservation/protection test.
+- SDL3 window and event loop initialize.
+- Vulkan loader, instance, Android surface, Mali-G615 MC2 physical device, logical device and graphics/present queues initialize.
+- A 2400×1080 swapchain with six images is created and the first blue frame is presented.
+- Exact 32-GiB guest virtual-address reservation at `0x7000000000`, one-page commit/write/readback, read-only protection, `PROT_NONE`, and release pass.
+- Simultaneous touch pointer IDs are delivered to SDL.
+
+Build #39 also isolated write-tracking capabilities: `userfaultfd` opens and its zero-feature API query succeeds, but `WP_ASYNC` and `WP_UNPOPULATED` are not advertised. The one-page soft-dirty test did not observe bit 55 after clear/write. `PAGEMAP_SCAN` returned `EACCES`, so ioctl availability could not be determined. The initial Android backend should therefore return unsupported (`-1`) for `plat_written_pages()` on this device.
+
+This evidence validates diagnostic probe paths only. It does not validate upstream renderer compatibility, guest-memory semantics beyond the tested mapping/protection calls, or game runtime execution. The next acceptance gate remains a separately compiled Android platform backend plus lifecycle and app-storage tests.
