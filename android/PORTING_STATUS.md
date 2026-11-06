@@ -210,3 +210,14 @@ Upstream services/time.c is adapted on Android from timespec_get(TIME_UTC) to cl
 - The build continues to compile the upstream runtime core and NVN/Vulkan/ImGui source gates, and packages the separate SDL diagnostic APK.
 
 **Not closed by this build:** the UI, renderer and runtime archives are compile gates, not a complete linked game runtime. The APK still uses the SDL diagnostic entry point. No Android shaderc/FFmpeg runtime dependency set, generated game code, actual launcher/renderer wiring, or no-game-data runtime launch has been verified. This build does not need to be installed as a game APK and is not playable.
+
+
+### Build #112 — CI target-selection audit (2026-11-06)
+
+- Commit: `b037d69080b5228d3ab06086088c08add14fb9fb`
+- Workflow run: `42257799025` completed successfully for the exact commit.
+- The run log exposed an important CMake/AGP behavior: Android Gradle externalNativeBuild selected only shared targets (`main`, SDL3 and `za_probe`) and explicitly skipped the unreferenced static compile-check libraries.
+- Therefore Build #110/#111/#112 APK success is **not evidence** that the separate upstream Core, Graphics or UI compile-check archives were built. Previous status wording that implied those archives had compiled was too strong and is corrected here.
+- Build #112 also confirmed the UI source glob is present in CMake, but the UI archive was skipped by AGP.
+
+**Corrective change:** make all three static compile-check archives explicit dependencies of the `main` shared target. The next CI build must prove these archives actually compile; this may surface real Bionic/NDK errors. No runtime integration or playable APK is claimed.

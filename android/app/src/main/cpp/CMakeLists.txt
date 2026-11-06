@@ -184,3 +184,14 @@ target_compile_options(za_runtime_ui_compilecheck PRIVATE
     -Wall -Wextra -Wno-unused-function -Wno-format -fno-strict-aliasing
 )
 target_link_libraries(za_runtime_ui_compilecheck PRIVATE SDL3::SDL3 vulkan log android dl)
+
+# Android Gradle externalNativeBuild explicitly builds shared-library targets.
+# Make the upstream static compile gates hard dependencies of the app library,
+# otherwise AGP can omit unreferenced static targets from its Ninja target list.
+add_dependencies(main
+    za_runtime_core_compilecheck
+    za_runtime_graphics_compilecheck
+    za_runtime_ui_compilecheck
+)
+message(STATUS "ZA_ANDROID_COMPILE_GATES_REQUIRED core=ON graphics=ON ui=ON")
+

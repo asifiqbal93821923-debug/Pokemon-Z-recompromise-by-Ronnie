@@ -131,3 +131,10 @@ This is a compile-only static archive. It does not link the launcher into the ap
 4. Produce and install a runtime APK, then perform the no-game-data smoke launch on the target phone and capture its actual runtime log.
 
 The existing device reports validate the diagnostic harness and platform slices only. Until these four gates pass, Phase 1 remains open and the project is not a playable Android port.
+
+
+## Build #112 — Android Gradle target-selection correction
+
+Run `42257799025` succeeded for commit `b037d69080b5228d3ab06086088c08add14fb9fb`, but its verbose log showed that AGP selected only shared targets. The static compile-check archives (`za_runtime_core_compilecheck`, `za_runtime_graphics_compilecheck`, `za_runtime_ui_compilecheck`) were skipped. Thus their actual compilation was not proven by that APK build.
+
+The CMake graph is being corrected by making all three static compile-check targets explicit dependencies of `main`. Expect the next build to be the first valid compile attempt for all three archives. Their compilation is still not a full runtime link.
