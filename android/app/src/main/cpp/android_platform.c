@@ -1,8 +1,13 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <string.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <sys/sysinfo.h>
+#include <sys/utsname.h>
+#include <sys/system_properties.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
@@ -71,3 +76,52 @@ int plat_cpu_count(void){cpu_set_t s;if(sched_getaffinity(0,sizeof(s),&s))return
 void plat_thread_guest(int p){(void)p;}
 void plat_thread_realtime(uint64_t p){(void)p;}
 int plat_thread_realtime_check(uint64_t p){(void)p;return -1;}
+
+void plat_init(void) {
+    // Android process and storage setup is owned by the Java Activity layer.
+}
+
+void plat_system_info(PlatSysInfo *si) {
+    if (!si) return;
+    struct utsname u;
+    memset(&u, 0, sizeof u);
+    const bool have_uname = uname(&u) == 0;
+
+    char release[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("ro.build.version.release", release) <= 0)
+        snprintf(release, sizeof release, "unknown");
+
+    snprintf(si->os, sizeof si->os, "Android %s (%s, kernel %.32s)",
+             release, have_uname ? u.machine : "arm64",
+             have_uname ? u.release : "unknown");
+    snprintf(si->cpu, sizeof si->cpu, "%s", have_uname ? u.machine : "ARM64");
+
+    const long count = sysconf(_SC_NPROCESSORS_ONLN);
+    if (count > 0 && count <= INT32_MAX) {
+        si->cores = (int)count;   // Physical core topology is not reliably exposed to an app.
+        si->threads = (int)count;
+    }
+    struct sysinfo memory;
+    if (sysinfo(&memory) == 0)
+        si->ram = (uint64_t)memory.totalram * (uint64_t)memory.mem_unit;
+    si->package = NULL;
+}
+
+bool plat_exe_path(char *buf, size_t size) {
+    // /proc/self/exe resolves to Android's app_process binary, not this APK's asset/resource directory.
+    // Returning false prevents the desktop resource-path logic from treating it as an application bundle.
+    if (buf && size) buf[0] = 0;
+    return false;
+}
+
+void plat_os_name(char *buf, size_t size) {
+    if (!buf || !size) return;
+    char release[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("ro.build.version.release", release) <= 0)
+        snprintf(release, sizeof release, "Android");
+    struct utsname u;
+    if (uname(&u) == 0)
+        snprintf(buf, size, "Android %s (kernel %s)", release, u.release);
+    else
+        snprintf(buf, size, "Android %s", release);
+}

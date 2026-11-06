@@ -15,6 +15,28 @@ int za_run_android_platform_api_probe(void)
     const uint64_t page = 4096;
     SDL_Log("ZA_PLATFORM_API stage=start");
 
+    plat_init();
+    PlatSysInfo system_info = {0};
+    char os_name[160] = {0};
+    plat_system_info(&system_info);
+    plat_os_name(os_name, sizeof os_name);
+    if (!system_info.os[0] || !system_info.cpu[0] || !os_name[0] ||
+        system_info.cores <= 0 || system_info.threads <= 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "ZA_PLATFORM_API stage=system_info result=FAIL os=%s cpu=%s cores=%d threads=%d",
+                     system_info.os, system_info.cpu, system_info.cores, system_info.threads);
+        return 11;
+    }
+    SDL_Log("ZA_PLATFORM_API stage=system_info result=PASS os=%s cpu=%s cores=%d threads=%d ram=%llu",
+            system_info.os, system_info.cpu, system_info.cores, system_info.threads,
+            (unsigned long long)system_info.ram);
+    if (plat_exe_path(os_name, sizeof os_name)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "ZA_PLATFORM_API stage=exe_path result=FAIL unexpected desktop executable path");
+        return 12;
+    }
+    SDL_Log("ZA_PLATFORM_API stage=exe_path result=UNSUPPORTED_EXPECTED Android APK assets require Java/AssetManager bridge");
+
     if (!plat_reserve_guest(ZA_GUEST_LO, ZA_GUEST_HI)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "ZA_PLATFORM_API stage=reserve result=FAIL errno=%d", errno);
@@ -89,6 +111,6 @@ int za_run_android_platform_api_probe(void)
                      "ZA_PLATFORM_API stage=release result=FAIL errno=%d", errno);
         return 10;
     }
-    SDL_Log("ZA_PLATFORM_API result=PASS stages=reserve,commit,write_readback,protect_read,protect_none,reset_zero,reject_outside_range,monotonic,thread_cpu,absolute_sleep,cpu_count,release");
+    SDL_Log("ZA_PLATFORM_API result=PASS stages=init,system_info,exe_path_unsupported,reserve,commit,write_readback,protect_read,protect_none,reset_zero,reject_outside_range,monotonic,thread_cpu,absolute_sleep,cpu_count,release");
     return 0;
 }
