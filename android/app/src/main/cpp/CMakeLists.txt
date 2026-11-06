@@ -48,10 +48,15 @@ file(GLOB ZA_RUNTIME_SERVICE_SOURCES CONFIGURE_DEPENDS
 )
 
 if(ANDROID AND CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-    list(APPEND ZA_RUNTIME_HLE_SOURCES
-        "${CMAKE_CURRENT_LIST_DIR}/android_fiber_arm64.c"
-        "${CMAKE_CURRENT_LIST_DIR}/android_fiber_arm64.S"
+    # Keep the hand-written AArch64 context switch in a dedicated archive so
+    # the assembler object is always included in the final link.
+    add_library(za_android_fiber STATIC
+        android_fiber_arm64.c
+        android_fiber_arm64.S
     )
+    target_include_directories(za_android_fiber PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
+    target_compile_features(za_android_fiber PUBLIC c_std_11)
+    target_compile_options(za_android_fiber PRIVATE -Wall -Wextra -Werror)
 endif()
 list(FILTER ZA_RUNTIME_ROOT_SOURCES EXCLUDE REGEX "/platform/(linux|macos|windows)\\.c$")
 set(ZA_RUNTIME_CORE_SOURCES
@@ -96,6 +101,7 @@ target_link_libraries(main PRIVATE
     SDL3::SDL3
     za_android_input
     za_android_platform_backend
+    za_android_fiber
     za_runtime_core_compilecheck
     vulkan
     log
