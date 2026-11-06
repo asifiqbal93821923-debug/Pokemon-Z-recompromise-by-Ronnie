@@ -8,12 +8,53 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdatomic.h>
 
 #define MAX_TRACKED_FINGERS 16
 #define DIAGNOSTIC_LOG_NAME "za_sdl_diagnostics.log"
 
 static SDL_FingerID active_fingers[MAX_TRACKED_FINGERS];
 static size_t active_finger_count;
+
+static atomic_bool app_in_background = ATOMIC_VAR_INIT(false);
+static atomic_uint lifecycle_event_count = ATOMIC_VAR_INIT(0);
+
+/* SDL documents Android lifecycle events as event-watch notifications. Keep
+   this callback tiny: no renderer/window work is allowed on the callback path. */
+static bool SDLCALL lifecycle_event_watch(void *userdata, SDL_Event *event)
+{
+    (void)userdata;
+    if (!event) return true;
+
+    switch (event->type) {
+    case SDL_EVENT_WILL_ENTER_BACKGROUND:
+        atomic_store_explicit(&app_in_background, true, memory_order_release);
+        atomic_fetch_add_explicit(&lifecycle_event_count, 1, memory_order_relaxed);
+        SDL_Log("ZA_ANDROID_LIFECYCLE event=WILL_ENTER_BACKGROUND render=paused");
+        break;
+    case SDL_EVENT_DID_ENTER_BACKGROUND:
+        atomic_store_explicit(&app_in_background, true, memory_order_release);
+        atomic_fetch_add_explicit(&lifecycle_event_count, 1, memory_order_relaxed);
+        SDL_Log("ZA_ANDROID_LIFECYCLE event=DID_ENTER_BACKGROUND render=paused");
+        break;
+    case SDL_EVENT_WILL_ENTER_FOREGROUND:
+        atomic_fetch_add_explicit(&lifecycle_event_count, 1, memory_order_relaxed);
+        SDL_Log("ZA_ANDROID_LIFECYCLE event=WILL_ENTER_FOREGROUND");
+        break;
+    case SDL_EVENT_DID_ENTER_FOREGROUND:
+        atomic_store_explicit(&app_in_background, false, memory_order_release);
+        atomic_fetch_add_explicit(&lifecycle_event_count, 1, memory_order_relaxed);
+        SDL_Log("ZA_ANDROID_LIFECYCLE event=DID_ENTER_FOREGROUND render=resume_requested");
+        break;
+    case SDL_EVENT_LOW_MEMORY:
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "ZA_ANDROID_LIFECYCLE event=LOW_MEMORY");
+        break;
+    default:
+        break;
+    }
+    return true;
+}
 
 /*
  * SDL_Log normally goes to Android logcat. The host screen cannot reliably
@@ -79,6 +120,8 @@ int main(int argc, char **argv)
     }
 
     SDL_SetLogOutputFunction(persist_sdl_log, NULL);
+    SDL_AddEventWatch(lifecycle_event_watch, NULL);
+    SDL_Log("ZA_ANDROID_LIFECYCLE result=WATCH_REGISTERED");
     const char *log_directory = SDL_GetAndroidInternalStoragePath();
     SDL_Log("ZA_DIAG_STAGE=native_log_capture_ready path=%s",
             log_directory != NULL ? log_directory : "(unavailable)");
@@ -132,6 +175,36 @@ int main(int argc, char **argv)
             case SDL_EVENT_QUIT:
                 running = false;
                 break;
+            case SDL_EVENT_WINDOW_SHOWN:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_SHOWN");
+                break;
+            case SDL_EVENT_WINDOW_HIDDEN:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_HIDDEN");
+                break;
+            case SDL_EVENT_WINDOW_MINIMIZED:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_MINIMIZED");
+                break;
+            case SDL_EVENT_WINDOW_RESTORED:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_RESTORED");
+                break;
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_FOCUS_LOST");
+                break;
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_FOCUS_GAINED");
+                break;
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                SDL_Log("ZA_ANDROID_LIFECYCLE event=WINDOW_PIXEL_SIZE_CHANGED width=%d height=%d",
+                        event.window.data1, event.window.data2);
+                break;
+            case SDL_EVENT_RENDER_DEVICE_RESET:
+                SDL_LogWarn(SDL_LOG_CATEGORY_RENDER,
+                            "ZA_ANDROID_LIFECYCLE event=RENDER_DEVICE_RESET SDL renderer owns device recovery");
+                break;
+            case SDL_EVENT_RENDER_DEVICE_LOST:
+                SDL_LogError(SDL_LOG_CATEGORY_RENDER,
+                             "ZA_ANDROID_LIFECYCLE event=RENDER_DEVICE_LOST");
+                break;
             case SDL_EVENT_FINGER_DOWN:
                 (void)track_finger_down(event.tfinger.fingerID);
                 SDL_Log("TOUCH_DOWN id=%llu x=%.4f y=%.4f active=%u",
@@ -157,7 +230,7 @@ int main(int argc, char **argv)
             }
         }
 
-        if (renderer != NULL) {
+        if (renderer != NULL && !atomic_load_explicit(&app_in_background, memory_order_acquire)) {
             Uint8 red = 18, green = 28, blue = 48;
             if (active_finger_count == 1) {
                 red = 30; green = 120; blue = 70;
@@ -171,6 +244,10 @@ int main(int argc, char **argv)
         SDL_Delay(16);
     }
 
+    SDL_RemoveEventWatch(lifecycle_event_watch, NULL);
+    SDL_Log("ZA_ANDROID_LIFECYCLE result=SUMMARY events=%u background=%s",
+            atomic_load_explicit(&lifecycle_event_count, memory_order_relaxed),
+            atomic_load_explicit(&app_in_background, memory_order_acquire) ? "yes" : "no");
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
