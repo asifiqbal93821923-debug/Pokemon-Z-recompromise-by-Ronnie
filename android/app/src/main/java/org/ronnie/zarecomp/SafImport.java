@@ -61,7 +61,7 @@ final class SafImport {
                     int count;
                     while ((count = input.read(buffer)) != -1) {
                         if (count == 0) continue;
-                        long freeNow = temp.getUsableSpace();
+                        long freeNow = importDir.getUsableSpace();
                         if (freeNow < count + reserveBytes)
                             throw new java.io.IOException("insufficient free space during copy");
                         output.write(buffer, 0, count);
