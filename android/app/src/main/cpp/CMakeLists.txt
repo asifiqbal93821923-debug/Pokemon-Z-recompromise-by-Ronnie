@@ -38,6 +38,11 @@ file(GLOB ZA_RUNTIME_ROOT_SOURCES CONFIGURE_DEPENDS
 file(GLOB ZA_RUNTIME_HLE_SOURCES CONFIGURE_DEPENDS
     "${ZA_UPSTREAM_RUNTIME}/hle/*.c"
 )
+
+# The movie HLE requires Android FFmpeg prebuilts (avcodec/avformat/avutil/swscale).
+# Keep it out of the core Bionic compile gate until that separate multimedia
+# dependency is integrated; do not provide a fake movie implementation.
+list(FILTER ZA_RUNTIME_HLE_SOURCES EXCLUDE REGEX "/movie\\.c$")
 file(GLOB ZA_RUNTIME_SERVICE_SOURCES CONFIGURE_DEPENDS
     "${ZA_UPSTREAM_RUNTIME}/services/*.c"
 )

@@ -82,3 +82,8 @@ CI applies narrowly scoped source edits from android/scripts/patch_upstream_for_
 Android Bionic does not expose POSIX getcontext/makecontext/swapcontext. The Android-only source adaptation replaces those calls in the pinned upstream runtime/hle/fiber.c with an AArch64 cooperative context switch. It preserves x19–x30, SP, d8–d15, FPCR and FPSR according to the Android ARM64 ABI. Windows and desktop POSIX branches remain unchanged.
 
 The Android NDK build includes the assembly backend and a native context-switch probe. The probe verifies switching from the calling context to a new stack and resuming twice. This is a focused ABI smoke test; full multi-thread fiber scheduling and game workload stress still require device/runtime testing.
+
+
+### Deliberate compile boundary: movie HLE
+
+The core compile-check excludes upstream runtime/hle/movie.c because that source requires FFmpeg headers and libraries (libavcodec, libavformat, libavutil and libswscale), which are not yet integrated as Android ARM64 prebuilts. No stub or fake video support is added. Android FFmpeg integration and movie playback remain explicit runtime dependencies outside this Phase 1 platform/core gate.

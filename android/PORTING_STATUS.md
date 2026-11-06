@@ -189,3 +189,8 @@ Owner supplied the full Build #69 diagnostics report from OnePlus CPH2943 / Andr
 ### Bionic path-buffer compatibility fixes
 
 The Android-only CI patch now adjusts the POSIX realpath output buffers in upstream gamebuild.c and main.c to PATH_MAX, leaving Windows-specific branches untouched. These fixes came from actual Android NDK diagnostics; the next CI run verifies the complete core compile set again.
+
+
+### Multimedia dependency boundary
+
+The upstream movie HLE requires FFmpeg headers/libraries absent from the Android target. It is explicitly excluded from the Phase 1 core compile-check until real Android ARM64 FFmpeg libraries are integrated; no placeholder movie implementation is supplied.
