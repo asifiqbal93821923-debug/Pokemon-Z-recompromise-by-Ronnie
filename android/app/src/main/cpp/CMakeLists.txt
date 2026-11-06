@@ -15,6 +15,7 @@ target_include_directories(za_android_platform_compilecheck PRIVATE upstream/run
 target_compile_features(za_android_platform_compilecheck PRIVATE c_std_11)
 target_compile_options(za_android_platform_compilecheck PRIVATE -Wall -Wextra -Werror)
 add_library(main SHARED sdl_probe.c vulkan_probe.c guest_memory_probe.c guest_write_tracking_probe.c android_platform_probe.c)
+target_include_directories(main PRIVATE upstream/runtime)
 target_compile_features(main PRIVATE c_std_11)
 target_compile_options(main PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(main PRIVATE SDL3::SDL3 za_android_input za_android_platform_compilecheck vulkan log)
