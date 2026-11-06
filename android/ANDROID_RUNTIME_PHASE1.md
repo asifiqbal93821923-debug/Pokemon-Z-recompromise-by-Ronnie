@@ -70,3 +70,8 @@ This exercises one real upstream runtime subsystem through the Android backend. 
 
 
 The Android-only upstream patch also enlarges the POSIX realpath output buffers in gamebuild.c and main.c to PATH_MAX. This is required by Bionic's compile-time realpath buffer contract; Windows buffers and code paths remain unchanged.
+
+
+### Reproducible Android/Bionic source edits
+
+CI applies narrowly scoped source edits from android/scripts/patch_upstream_for_android.py rather than a hand-maintained unified diff. The script checks that each upstream anchor occurs exactly once and verifies the final source. It excludes the glibc Linux shim on Android and sizes POSIX realpath output buffers to PATH_MAX in gamebuild.c and main.c, while leaving Windows branches unchanged.

@@ -40,9 +40,9 @@ jobs:
           test -f vendor/pokeza-upstream/runtime/platform/linux.c
           echo "Pinned upstream runtime source is present at dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6"
 
-      - name: Apply Android-only upstream platform header compatibility patch
+      - name: Apply Android-only upstream compatibility edits
         run: |
-          git -C vendor/pokeza-upstream apply "$GITHUB_WORKSPACE/android/patches/upstream-android-platform-header.patch"
+          python3 android/scripts/patch_upstream_for_android.py vendor/pokeza-upstream
           git -C vendor/pokeza-upstream diff --check
           grep -F '#elif defined(__linux__) && !defined(__ANDROID__)' vendor/pokeza-upstream/runtime/platform.h
 
