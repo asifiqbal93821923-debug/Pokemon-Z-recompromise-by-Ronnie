@@ -11,8 +11,8 @@ android {
         applicationId 'org.ronnie.zarecomp'
         minSdk 28
         targetSdk 36
-        versionCode 20
-        versionName '0.7.1-phase1-renderer-compile'
+        versionCode 21
+        versionName '0.7.2-sdl-back-button'
 
         ndk {
             abiFilters 'arm64-v8a'
@@ -41,9 +41,8 @@ android {
 
     buildTypes {
         debug {
-            // Unique package so this build installs side-by-side with earlier diagnostic
-            // APKs even when GitHub Actions uses a different ephemeral signing key.
-            applicationIdSuffix '.phase1lifecycle'
+            // Keep this navigation test installable beside previous diagnostic APKs.
+            applicationIdSuffix '.phase1backbutton'
             debuggable true
         }
         release {
