@@ -14,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
@@ -22,8 +23,20 @@ public final class MainActivity extends Activity {
     private TextView status;
     private int launchCount;
 
+    private void recordHostEvent(String event) {
+        String line = System.currentTimeMillis() + " HOST_" + event + "\n";
+        try (FileOutputStream out = new FileOutputStream(
+                new File(getFilesDir(), "za_host_activity.log"), true)) {
+            out.write(line.getBytes(StandardCharsets.UTF_8));
+            out.getFD().sync();
+        } catch (Exception error) {
+            android.util.Log.e("ZA_HOST_DIAG", "Could not persist host lifecycle", error);
+        }
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        recordHostEvent("ON_CREATE");
         buildDiagnosticScreen();
         status.setText("Host Activity: created. Main process is alive.");
     }
@@ -134,6 +147,15 @@ public final class MainActivity extends Activity {
             }
 
             File logFile = new File(getFilesDir(), "za_sdl_diagnostics.log");
+            report.append("\nManifest runtime permissions: none (no uses-permission declarations).\n");
+            report.append("\n=== MAIN ACTIVITY LIFECYCLE ===\n");
+            File hostLog = new File(getFilesDir(), "za_host_activity.log");
+            if (hostLog.isFile()) {
+                report.append(new String(Files.readAllBytes(hostLog.toPath()), StandardCharsets.UTF_8));
+            } else {
+                report.append("No host Activity lifecycle log yet.\n");
+            }
+
             report.append("\n=== COMPLETE SDL / VULKAN / GUEST MEMORY LOG ===\n");
             if (logFile.isFile()) {
                 byte[] bytes = Files.readAllBytes(logFile.toPath());
@@ -175,8 +197,29 @@ public final class MainActivity extends Activity {
         }
     }
 
+    @Override protected void onStart() {
+        super.onStart();
+        recordHostEvent("ON_START");
+    }
+
     @Override protected void onResume() {
         super.onResume();
+        recordHostEvent("ON_RESUME");
+    }
+
+    @Override protected void onPause() {
+        recordHostEvent("ON_PAUSE");
+        super.onPause();
+    }
+
+    @Override protected void onStop() {
+        recordHostEvent("ON_STOP");
+        super.onStop();
+    }
+
+    @Override protected void onDestroy() {
+        recordHostEvent("ON_DESTROY");
+        super.onDestroy();
     }
 
     private static native String nativeGetProbeInfo();
