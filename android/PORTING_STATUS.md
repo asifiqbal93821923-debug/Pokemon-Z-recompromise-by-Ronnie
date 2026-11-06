@@ -73,3 +73,14 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - This avoids an Android package/signature update conflict by installing as a second app; it does not replace or modify the old app or its private data.
 - Android private app storage is sandboxed by package. The new recovery app cannot read the old app's `files/za-import` copy. To test this build, select the original NSP from the user's Google Drive provider through the SAF picker and import it again into the new app's private storage. Keep the original Drive file and old app until the new import has been independently verified.
 - This remains an import/diagnostic utility only, not a playable game. CI debug signing remains ephemeral; this side-by-side package avoids relying on matching signing keys for this recovery test.
+
+### Build #64 — owner device report (2026-11-06)
+
+The owner supplied the Build #64 report from OnePlus CPH2943 / Android 16 / arm64-v8a:
+
+- JNI native library loaded successfully; 8 online CPUs and 4096-byte page size reported.
+- Local Downloads-folder SAF import passed: 4,325,966,911 bytes copied into the recovery package's private `files/za-import/` directory; SHA-256 `c494c0f9225370e6e39d4c6634b0be1cbc74af087bb87ef9b271594ce84f2521`. This matches the previously recorded Build #60 byte-copy checksum.
+- A separate attempt through the Google Drive document provider failed with `FileNotFoundException` / provider message `Cello error 8`. This is recorded as a provider-specific import failure; it does not establish corruption of the source file.
+- Android Storage Bridge was not run in this report. SDL/Vulkan/guest-memory diagnostics were also not run in this report.
+
+**Scope:** successful local SAF import proves only byte copying and checksum integrity. It does not parse, decrypt, unpack, or execute the NSP, and it does not establish game compatibility or playable gameplay.
