@@ -153,3 +153,28 @@ target_compile_options(za_runtime_graphics_compilecheck PRIVATE
     -Wall -Wextra -Wno-unused-function -Wno-format -fno-strict-aliasing
 )
 target_link_libraries(za_runtime_graphics_compilecheck PRIVATE SDL3::SDL3 vulkan log android dl)
+
+
+# Compile the portable upstream UI implementation as Android C++.
+# The upstream Makefile compiles these .mm files as plain C++ on Linux;
+# Apple-only Objective-C / Metal sections are guarded by __APPLE__.
+file(GLOB ZA_RUNTIME_UI_SOURCES CONFIGURE_DEPENDS
+    "${ZA_UPSTREAM_RUNTIME}/ui/*.mm"
+)
+set_source_files_properties(${ZA_RUNTIME_UI_SOURCES} PROPERTIES LANGUAGE CXX)
+add_library(za_runtime_ui_compilecheck STATIC ${ZA_RUNTIME_UI_SOURCES})
+target_include_directories(za_runtime_ui_compilecheck PRIVATE
+    "${ZA_UPSTREAM_RUNTIME}"
+    "${ZA_UPSTREAM_RUNTIME}/ui"
+    "${ZA_UPSTREAM_RUNTIME}/nvn"
+    "${ZA_UPSTREAM_RUNTIME}/nvn/vulkan"
+    "${ZA_IMGUI_ROOT}"
+    "${ZA_IMGUI_ROOT}/backends"
+    "${ZA_UPSTREAM_ROOT}/third_party/ooz"
+    "${ZA_UPSTREAM_ROOT}/third_party/ryujinx"
+)
+target_compile_features(za_runtime_ui_compilecheck PRIVATE cxx_std_17)
+target_compile_options(za_runtime_ui_compilecheck PRIVATE
+    -Wall -Wextra -Wno-unused-function -Wno-format -fno-strict-aliasing
+)
+target_link_libraries(za_runtime_ui_compilecheck PRIVATE SDL3::SDL3 vulkan log android dl)

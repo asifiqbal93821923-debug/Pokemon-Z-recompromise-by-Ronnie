@@ -107,3 +107,10 @@ CI can verify compilation and linking of this path. The target-phone test still 
 The next Android NDK pass now adds the pinned upstream NVN/Vulkan renderer translation units, Maxwell shader translator, Dear ImGui core, and SDL3/Vulkan ImGui backends to a separate static compile-check target. CI checks out Vulkan Memory Allocator v3.3.0 and shaderc v2025.1.1 headers for these source builds. The generated shader-data translation units (SMAA source, shader variant table, and embedded FSR2 GLSL blob) remain excluded until their upstream Makefile generators are reproduced in the Android build.
 
 This is still a compile gate, not a linked or running renderer. It intentionally does not link runtime/main.c or claim the launcher/game starts. The build output will identify the first remaining Android renderer source/dependency incompatibilities so they can be addressed before the real runtime target is assembled.
+
+
+## Android UI source compile gate (2026-11-06)
+
+The Android NDK workflow now also compiles every portable upstream `runtime/ui/*.mm` translation unit as C++17, matching the upstream Linux build convention (Apple-only Metal / Objective-C sections remain excluded by `__APPLE__` guards). The gate covers the native launcher and in-game UI sources against SDL3, Dear ImGui, Vulkan headers and the Android NDK.
+
+This is a compile-only static archive. It does not link the launcher into the app, instantiate the NVN renderer, or prove the runtime entry point can launch; missing Android dependencies and lifecycle adaptation remain separate gates.
