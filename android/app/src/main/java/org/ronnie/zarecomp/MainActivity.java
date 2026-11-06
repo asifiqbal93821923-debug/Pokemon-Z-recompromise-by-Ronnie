@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Build;
+import android.net.Uri;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -22,6 +23,8 @@ import java.nio.file.Files;
 public final class MainActivity extends Activity {
     private TextView status;
     private String storageProbeReport = "Not run yet.";
+    private String safImportReport = "Not run yet.";
+    private static final int REQUEST_IMPORT_DOCUMENT = 4107;
     private int launchCount;
 
     private void recordHostEvent(String event) {
@@ -103,6 +106,23 @@ public final class MainActivity extends Activity {
         });
         root.addView(storageButton);
 
+        Button importButton = new Button(this);
+        importButton.setText("Import one file (SAF) into app storage");
+        importButton.setOnClickListener(v -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("*/*");
+            pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(pick, REQUEST_IMPORT_DOCUMENT);
+                status.setText("Choose one file. It will be copied into app-private za-import storage.");
+            } catch (Throwable error) {
+                status.setText("SAF PICKER FAILED\n" + error.getClass().getSimpleName()
+                        + ": " + error.getMessage());
+            }
+        });
+        root.addView(importButton);
+
         Button sdlButton = new Button(this);
         sdlButton.setText("Launch SDL3 diagnostic");
         sdlButton.setOnClickListener(v -> {
@@ -155,6 +175,8 @@ public final class MainActivity extends Activity {
             report.append("\nApp files: ").append(getFilesDir().getAbsolutePath()).append("\n");
             report.append("\n=== ANDROID STORAGE BRIDGE ===\n")
                     .append(storageProbeReport).append('\n');
+            report.append("\n=== SAF FILE IMPORT ===\n")
+                    .append(safImportReport).append('\n');
 
             try {
                 System.loadLibrary("za_probe");
@@ -215,6 +237,25 @@ public final class MainActivity extends Activity {
             status.setText("LOG READ FAILED\n" + error.getClass().getSimpleName()
                     + ": " + error.getMessage());
         }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_IMPORT_DOCUMENT) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            safImportReport = "SAF_IMPORT result=CANCELLED";
+            status.setText(safImportReport);
+            return;
+        }
+        Uri selected = data.getData();
+        status.setText("Import started. Copying selected document into app-private storage...");
+        new Thread(() -> {
+            String result = SafImport.copyIntoPrivateStorage(this, selected);
+            runOnUiThread(() -> {
+                safImportReport = result;
+                status.setText(result);
+            });
+        }, "za-saf-import").start();
     }
 
     @Override protected void onStart() {

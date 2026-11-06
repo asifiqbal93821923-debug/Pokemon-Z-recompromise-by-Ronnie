@@ -37,3 +37,13 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - Native probe creates separate za-data, za-save and za-cache directories, writes/reads/deletes sentinel files, and reads a project-authored text asset using NDK AAssetManager.
 - This tests only the Java-to-native storage/resource bridge. It does not import game data, implement SAF, or integrate upstream runtime/paths.c.
 - A SAF content:// URI must be read through Android ContentResolver and copied into app-private storage; it must not be passed directly to POSIX open().
+
+
+### Build #59 — SAF document import bridge (CI build pending device verification)
+
+- Added a single-document Android Storage Access Framework picker using `ACTION_OPEN_DOCUMENT` / `CATEGORY_OPENABLE`; no broad storage permission is requested.
+- The selected `content://` URI is consumed only by Android `ContentResolver` / `InputStream`; it is never passed to native POSIX file APIs.
+- Import streams in 1-MiB chunks into a temporary file under app-private `files/za-import/`, checks available space with a 16-MiB reserve, validates provider-reported size when available, computes SHA-256, fsyncs, then publishes the completed file by same-directory atomic rename (with same-directory rename fallback).
+- Destination names are sanitized and prefixed with a random UUID. Failed/incomplete copies are removed; the URI permission is not persisted because the file is copied immediately.
+- The full diagnostics clipboard report now includes the SAF import result, byte count, SHA-256, MIME type and app-private destination.
+- This is an import transport probe only. It does not decrypt, unpack, interpret, or execute imported content; it does not integrate the upstream `runtime/paths.c` data-root policy or make the game playable. Large-file behavior still requires on-device testing with a non-sensitive test file and adequate free space.
