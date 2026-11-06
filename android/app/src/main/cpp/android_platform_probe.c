@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdint.h>
@@ -64,6 +65,17 @@ int za_run_android_platform_api_probe(void)
     SDL_Log("ZA_PLATFORM_API stage=start");
 
     plat_init();
+    extern int za_android_platform_link_probe(void);
+    const int linked_symbols = za_android_platform_link_probe();
+    const char *xdg_data_home = getenv("XDG_DATA_HOME");
+    const bool private_data_home_ok = xdg_data_home && xdg_data_home[0] == '/' && access(xdg_data_home, W_OK) == 0;
+    if (linked_symbols != 39 || !private_data_home_ok) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "ZA_ANDROID_RUNTIME_ENV result=FAIL linked_symbols=%d expected=39 xdg_data_home=%s",
+                     linked_symbols, xdg_data_home ? xdg_data_home : "(null)");
+        return 15;
+    }
+    SDL_Log("ZA_ANDROID_RUNTIME_ENV result=PASS linked_platform_symbols=%d app_private_xdg_data_home=yes", linked_symbols);
     PlatSysInfo system_info = {0};
     char os_name[160] = {0};
     plat_system_info(&system_info);
