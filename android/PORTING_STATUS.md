@@ -165,3 +165,14 @@ Owner supplied the full Build #69 diagnostics report from OnePlus CPH2943 / Andr
 **Scope:** Build #69 is still a diagnostic harness, not the upstream game runtime. No NSP parsing/decryption, game asset loading, recompilation, or gameplay was demonstrated.
 
 **Renderer source audit:** At pinned upstream commit `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6`, `runtime/nvn/vulkan/exec.c` checks `pages_cpu_written(HEAP_BASE, 4096, ...)`. In AUTO mode, when no page tracking is available, it sets GPU overlap OFF and logs that it is using the normal full fence wait. An explicit GPU_OVERLAP ON setting or `LARECOMP_GPU_OVERLAP=1` can override AUTO; Android integration must not force that override without validating the alternate watch path. The renderer behavior itself has not yet been exercised on Android.
+
+
+### Build #72 — Android platform backend linked (2026-11-06)
+
+- Commit: 4ff28e326597798f2ba329fbf6066e6a4054054a
+- Workflow run: 42217357351 — completed successfully against the exact commit.
+- The Android NDK target now compiles and links android_platform.c and android_platform_link_probe.c into the SDL native shared library; it no longer treats the backend as compile-only.
+- The link probe references 39 common upstream platform API symbols applicable to Android.
+- The native diagnostic now checks that XDG_DATA_HOME is an absolute writable app-private path after plat_init().
+- Build success is source/CI evidence only. The XDG path assertion still needs the owner's on-device report.
+- Full Phase 1 remains open: the repository still lacks the full upstream runtime source tree and the Android target still has explicit unsupported process operations. See ANDROID_RUNTIME_PHASE1.md.

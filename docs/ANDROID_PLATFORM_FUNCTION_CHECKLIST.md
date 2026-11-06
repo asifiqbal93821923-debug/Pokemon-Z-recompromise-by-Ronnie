@@ -100,3 +100,21 @@ No ROM/NSP/XCI, keys, firmware, proprietary game assets, generated game code or 
 The owner supplied the complete Build #53 report from OnePlus CPH2943 / Android 16 / SDK 36 / arm64-v8a. `ZA_PLATFORM_API result=PASS` confirms the linked diagnostic Android slice passed reservation, commit/write/readback, read-only and PROT_NONE protection, reset-to-zero, out-of-range rejection, monotonic/thread CPU clocks, absolute sleep, CPU count (8), and release. The same run reconfirmed Vulkan first-frame presentation and SDL3 multitouch.
 
 This is not upstream game-runtime integration. The backend is linked only to the diagnostic JNI library. The write-tracking functions remain explicitly unsupported (-1) because the tested kernel does not advertise the required userfaultfd WP features and PAGEMAP_SCAN is blocked by EACCES.
+
+
+## Android backend implementation update (2026-11-06)
+
+The earlier implementation statuses above predate the linked backend milestone. The dedicated Android translation unit now defines the common platform API functions applicable to Android and has a 39-symbol link probe. The following policies are now implemented in source:
+
+- Guest reserve/reset/protect and lazy commit: implemented with Bionic mmap/mprotect and validated range checks; earlier one-page/32-GiB phone probes passed.
+- Dirty page tracking: explicitly unavailable (-1); earlier phone capability probe confirmed the tested device does not advertise required write-protect features.
+- Page state and process memory usage: explicit unavailable (false).
+- Time, CPU count and scheduling hints: implemented conservatively.
+- System information and APK executable path: Android-specific implementation; executable path remains expected-unsupported.
+- Data root: app-private SDL preference path is set as XDG_DATA_HOME in plat_init.
+- File operations: implemented for app-private POSIX paths.
+- Process replacement and helper processes: symbols are implemented but return ENOTSUP / failure; call-site redesign is still required.
+- Diagnostics: Android logcat, dladdr module/symbol lookup, backtrace, notices and AArch64 signal-context forwarding are implemented in the adapter.
+- Desktop window hash: explicit unsupported (false).
+
+CI run 42217357351 passed for the linked Android ARM64 diagnostic target. The 39-symbol probe and app-private path assertion require on-device confirmation. The upstream runtime and Vulkan renderer are still not linked into this target.

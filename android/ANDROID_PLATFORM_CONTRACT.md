@@ -62,3 +62,10 @@ This validates diagnostic paths only, not the upstream renderer, complete guest-
 ## Write-tracking fallback decision (Android ARM64)
 
 The tested Android 16 / kernel 6.1 device does not expose the upstream userfaultfd async-WP prerequisites, PAGEMAP_SCAN is denied, and ARM64 soft-dirty bit 55 is not a valid fallback. Do not attempt to enable these through Kotlin runtime permissions or weaken SELinux. Android `plat_written_pages()` and `plat_written_pages_peek()` therefore return the upstream-defined sentinel `-1` (tracking unavailable). The renderer must treat `-1` as unavailable tracking. In the pinned upstream Vulkan renderer, AUTO mode probes `pages_cpu_written()` and disables GPU overlap when tracking is unavailable, returning to the normal same-frame fence wait. This preserves the renderer's established synchronization path at a performance cost. The Android platform probe now verifies the sentinel contract on-device. This is a validated fallback policy, not a working dirty-page tracker; a real tracker remains unsupported until implemented and tested.
+
+
+## Linked backend implementation
+
+The Android NDK target now links the Android backend and a 39-symbol API link probe into the SDL native shared library. plat_init() obtains the Android app-private preference directory through SDL_GetPrefPath and sets XDG_DATA_HOME before the upstream Linux-style data-root selection.
+
+Process replacement and helper-process APIs remain explicitly unsupported rather than returning fake success. The full runtime must be adapted before those APIs can be used by its launcher/build helpers. This link check is not a complete upstream runtime link.
