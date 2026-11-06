@@ -22,7 +22,7 @@ Device log supplied by the owner from Build #30:
 - SDL3 event loop: ready.
 - Touch and multi-touch: DOWN/UP events observed for multiple pointer IDs.
 
-This confirms the diagnostic path only. It does not prove the upstream game renderer, guest memory model, generated game code, audio, storage/import, or gameplay works on Android.
+Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000000000`, one-page RW commit/write/readback, read-only protection, `PROT_NONE`, and full `munmap` release. This validates only the tested mmap/mprotect sequence; it does not validate upstream written-page tracking, fault handling, guest memory semantics, the upstream renderer, generated game code, audio, storage/import, or gameplay.
 
 ## Milestones
 
@@ -40,11 +40,20 @@ This confirms the diagnostic path only. It does not prove the upstream game rend
 | Vulkan first-frame presentation | Device-tested PASS | `ZA_VK_STAGE=first_frame_presented` |
 | Android platform backend (`runtime/platform/android.c`) | Not started | Upstream runtime source is not present in this workspace; integrate only after a license/dependency/source pin review |
 | Upstream runtime entry point integration | Not started | Requires lifecycle-aware Android entry path |
-| Guest virtual-memory compatibility | Not tested | Must test exact guest address reservation/protection on Android |
+| Exact 32-GiB guest-window reservation/protection | Device-tested PASS | Build #34: exact address, one-page commit/write/readback, read-only/`PROT_NONE`, release |
+| Guest written-page tracking / fault handling | Not tested | Probe Android `userfaultfd`/`PAGEMAP_SCAN` availability and permissions; design a safe fallback if unavailable |
 | Android-compatible dependency build | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui and runtime dependencies remain unverified |
 | SAF user-file access/import | Not implemented | Add a harmless test-file flow before game-data setup |
 | Actual Z-A runtime startup | Not started | No game runtime or generated game code in this repository |
 | Gameplay / performance | Not tested | No playable Android build exists |
+
+## Build #34 — guest address reservation
+
+- Commit: `8683021e60b4793c026e581feb4b7a22306b5e30`
+- Workflow run: [#34](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42175060697)
+- CI: successful Android ARM64 debug build.
+- Device: owner supplied the combined log with `ZA_GUEST_MEM result=PASS`.
+- Scope: exact 32-GiB virtual reservation and page protection smoke test only; not upstream fault tracking or runtime integration.
 
 ## Build #30
 
@@ -56,7 +65,7 @@ This confirms the diagnostic path only. It does not prove the upstream game rend
 
 ## Next engineering milestone
 
-Do not label the current app as a port. The upstream audit is now pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). Its `runtime/rt.h` defines the non-Apple guest window as `0x7000000000`–`0x7800000000`, a 32-GiB reservation. The most important next gate is to test exact-range reservation/protection/reset in the SDL app process before importing runtime code. Then create a separate Android runtime integration branch/patch series with:
+Do not label the current app as a port. The upstream audit is now pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). Its `runtime/rt.h` defines the non-Apple guest window as `0x7000000000`–`0x7800000000`, a 32-GiB reservation. The exact-range reservation/protection smoke test passed on the owner's phone in Build #34. The next gate is to test the Linux-specific written-page tracking/fault mechanisms used by upstream and establish a compatible Android implementation before importing runtime code. Then create a separate Android runtime integration branch/patch series with:
 
 1. An explicit Android NDK build target that leaves desktop targets unchanged.
 2. A minimal, compile-tested Android implementation of the upstream platform contract.
