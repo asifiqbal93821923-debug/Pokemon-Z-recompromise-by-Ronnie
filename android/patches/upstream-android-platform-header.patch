@@ -9,3 +9,23 @@ index 1127dd5..0000000 100644
 +#elif defined(__linux__) && !defined(__ANDROID__)
  #include "platform/linux_compat.h"
  #endif
+diff --git a/runtime/gamebuild.c b/runtime/gamebuild.c
+index 0000000..0000000 100644
+--- a/runtime/gamebuild.c
++++ b/runtime/gamebuild.c
+@@ -4,6 +4,7 @@
+ #include <pthread.h>
+ #include <stdint.h>
+ #include <stdio.h>
++#include <limits.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+@@ -497,2 +498,6 @@
+-        char zc[1200], rel[1200];
++#ifdef _WIN32
++        char zc[1200], rel[1200];
++#else
++        char zc[PATH_MAX], rel[PATH_MAX];
++#endif
+         snprintf(rel, sizeof rel, "%s" SEP "zig-cache", work);
