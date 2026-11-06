@@ -124,3 +124,20 @@ Owner supplied the Build #67 report from OnePlus CPH2943 / Android 16 (SDK 36) /
 - SDL/Vulkan/guest-memory log was not present because the SDL3 diagnostic Activity had not yet been launched from this package. Next device action: tap “Launch SDL3 diagnostic”, allow it to finish, then “COPY FULL DIAGNOSTICS” and provide the report.
 
 **Scope:** Storage bridge PASS verifies private directory/file operations and reading a project-authored APK asset. It does not establish NSP parsing/decryption, game asset loading, recompilation, production runtime, or playable gameplay. Write tracking remains blocked pending a safe Android-compatible implementation; do not mark it PASS based on the storage result.
+
+
+### Build #67 — owner device report: SDL3 / Vulkan / guest memory PASS (2026-11-06)
+
+Owner supplied a second Build #67 report from OnePlus CPH2943 / Android 16 (SDK 36) / arm64-v8a:
+
+- Android Storage Bridge: PASS (private directories, file round-trip, APK AssetManager read).
+- SDL3: native window, renderer, event loop, Activity lifecycle, single-touch and multi-touch events all observed.
+- Vulkan: Android loader and instance created; Android surface created; Mali-G615 MC2 detected (vendor 0x13b5, device 0xb8a31030, Vulkan API 1.3.247); logical device and graphics/present queues created; 2400x1080 swapchain, format 37, six images; first blue frame presented.
+- Android platform API diagnostic: PASS for system info, 32 GiB reservation, commit/write/read/protection, reset, outside-range rejection, monotonic/thread CPU timing, absolute sleep, CPU count, filesystem operations, and release. Executable path is explicitly UNSUPPORTED_EXPECTED because APK assets require the Java/AssetManager bridge; the separate Storage Bridge confirms AssetManager asset reads, but a production guest executable path adapter is not implemented.
+- Guest memory: PASS for exact 32 GiB reservation at 0x7000000000, commit, write/readback, read-only/no-access protection and release.
+- Write tracking: capability report completed, but actual written-page tracking remains unsupported. userfaultfd open and UFFDIO_API query pass; required WP features PAGEFAULT_FLAG_WP, WP_HUGETLBFS_SHMEM, WP_UNPOPULATED and WP_ASYNC are not advertised. PAGEMAP_SCAN generic ioctl returns EACCES/Permission denied; stock 6.1 support is not expected and vendor backport is unverified. ARM64 soft-dirty bit 55 was not observed on three test pages. Do not claim tracking support or use an unsafe signal-handler fallback.
+- SAF import in .storageprobe: NOT RUN. The previously verified 4,325,966,911-byte local Downloads import with SHA-256 c494c0f9225370e6e39d4c6634b0e1cbc74af087bb87ef9b271594ce84f2521 remains in the separate .recovery package; package-private files are not shared between apps.
+- Activity lifecycle: create/start/resume, pause/stop/destroy and a subsequent host Activity recreation were recorded. SDL diagnostic Activity ended normally.
+- No game runtime, NSP parsing/decryption, game asset loading, recompilation, or playable gameplay was demonstrated.
+
+**Next technical work:** implement a dedicated Android executable-path / asset access adapter only after reviewing upstream platform contracts; investigate a safe software dirty-page tracking design that can be validated on Android ARM64. Keep unsupported status until correctness is demonstrated. Do not ask the owner to re-import the large file unless a later test specifically requires it.
