@@ -65,3 +65,11 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - Added “Verify existing imported file (no re-copy)”: scans app-private files/za-import, selects the most recently modified regular non-hidden completed file (excluding .part and symlinks), and recomputes byte count and SHA-256 on a background thread. This allows an APK update to reconstruct the prior import report without copying the multi-gigabyte source again.
 - Existing imports are not automatically re-hashed at launch; the owner explicitly starts verification. The recovery scan currently chooses the newest eligible file if multiple imports exist.
 - On-device verification is required for SharedPreferences restoration and large-file rehash timing. This remains a diagnostic/import utility, not game data parsing or runtime integration.
+
+
+### Build #64 — side-by-side recovery package
+
+- Changed the debug application ID suffix from `.debug` to `.recovery` and incremented version metadata. The resulting package is `org.ronnie.zarecomp.recovery`, separate from the existing `org.ronnie.zarecomp.debug` installation.
+- This avoids an Android package/signature update conflict by installing as a second app; it does not replace or modify the old app or its private data.
+- Android private app storage is sandboxed by package. The new recovery app cannot read the old app's `files/za-import` copy. To test this build, select the original NSP from the user's Google Drive provider through the SAF picker and import it again into the new app's private storage. Keep the original Drive file and old app until the new import has been independently verified.
+- This remains an import/diagnostic utility only, not a playable game. CI debug signing remains ephemeral; this side-by-side package avoids relying on matching signing keys for this recovery test.
