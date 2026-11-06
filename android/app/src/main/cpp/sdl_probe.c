@@ -1,13 +1,43 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h> /* Exports the SDL_main entry point required by SDLActivity on Android. */
+#include <SDL3/SDL_system.h>
 #include "vulkan_probe.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #define MAX_TRACKED_FINGERS 16
+#define DIAGNOSTIC_LOG_NAME "za_sdl_diagnostics.log"
 
 static SDL_FingerID active_fingers[MAX_TRACKED_FINGERS];
 static size_t active_finger_count;
+
+/*
+ * SDL_Log normally goes to Android logcat. The host screen cannot reliably
+ * read logcat on modern Android, so mirror every SDL/Vulkan log line into
+ * the same app-private file that SDLProbeActivity and MainActivity use.
+ */
+static void persist_sdl_log(void *userdata, int category,
+                            SDL_LogPriority priority, const char *message)
+{
+    (void)userdata;
+    if (message == NULL) return;
+
+    const char *directory = SDL_GetAndroidInternalStoragePath();
+    if (directory == NULL) return;
+
+    char path[1024];
+    int written = snprintf(path, sizeof(path), "%s/%s",
+                           directory, DIAGNOSTIC_LOG_NAME);
+    if (written <= 0 || (size_t)written >= sizeof(path)) return;
+
+    FILE *file = fopen(path, "a");
+    if (file == NULL) return;
+    (void)fprintf(file, "SDL_NATIVE category=%d priority=%d %s\n",
+                  category, (int)priority, message);
+    (void)fflush(file);
+    (void)fclose(file);
+}
 
 static bool track_finger_down(SDL_FingerID id)
 {
@@ -39,12 +69,17 @@ int main(int argc, char **argv)
     (void)argc;
     (void)argv;
 
-    SDL_Log("ZA_DIAG_STAGE=starting SDL3");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ZA_DIAG_STAGE=SDL_INIT_FAILED: %s",
                      SDL_GetError());
         return 1;
     }
+
+    SDL_SetLogOutputFunction(persist_sdl_log, NULL);
+    const char *log_directory = SDL_GetAndroidInternalStoragePath();
+    SDL_Log("ZA_DIAG_STAGE=native_log_capture_ready path=%s",
+            log_directory != NULL ? log_directory : "(unavailable)");
+    SDL_Log("ZA_DIAG_STAGE=starting SDL3");
 
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *mode = display ? SDL_GetCurrentDisplayMode(display) : NULL;
@@ -82,7 +117,6 @@ int main(int argc, char **argv)
         SDL_Log("ZA_DIAG_STAGE=renderer_created");
     }
 
-    /* Vulkan surface capability probe runs before the SDL renderer is created. */
     SDL_Log("ZA_DIAG_STAGE=event_loop_ready");
     bool running = true;
     SDL_Event event;

@@ -41,14 +41,17 @@ public final class MainActivity extends Activity {
 
         TextView intro = new TextView(this);
         intro.setText("\nThis is a diagnostic host screen, not the game.\n"
-                + "SDL runs in a separate Android process. Lifecycle records are saved locally.");
+                + "SDL runs in a separate Android process. SDL and Vulkan logs are saved locally.");
         intro.setTextColor(0xFFD7E0EE);
         intro.setTextSize(15);
         root.addView(intro);
 
         status = new TextView(this);
         status.setTextColor(0xFF8FE3A5);
-        status.setTextSize(14);
+        status.setTextSize(12);
+        status.setTypeface(Typeface.MONOSPACE);
+        status.setTextIsSelectable(true);
+        status.setGravity(Gravity.TOP | Gravity.START);
         status.setPadding(0, pad, 0, pad);
         root.addView(status);
 
@@ -80,7 +83,7 @@ public final class MainActivity extends Activity {
         root.addView(sdlButton);
 
         Button logButton = new Button(this);
-        logButton.setText("Show SDL diagnostic log");
+        logButton.setText("Show combined SDL + Vulkan diagnostic log");
         logButton.setOnClickListener(v -> showSdlLog());
         root.addView(logButton);
 
@@ -93,11 +96,11 @@ public final class MainActivity extends Activity {
         try {
             File logFile = new File(getFilesDir(), "za_sdl_diagnostics.log");
             if (!logFile.exists()) {
-                status.setText("No SDL lifecycle log found yet. Launch SDL3 diagnostic first.");
+                status.setText("No diagnostic log found yet. Launch SDL3 diagnostic first.");
                 return;
             }
             String log = new String(Files.readAllBytes(logFile.toPath()), StandardCharsets.UTF_8);
-            status.setText(log.length() > 12000 ? log.substring(log.length() - 12000) : log);
+            status.setText(log.length() > 30000 ? log.substring(log.length() - 30000) : log);
         } catch (Exception error) {
             status.setText("LOG READ FAILED\n" + error.getClass().getSimpleName()
                     + ": " + error.getMessage());
@@ -106,7 +109,6 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        // Keep the last displayed status so the user can inspect the log.
     }
 
     private static native String nativeGetProbeInfo();
