@@ -2,6 +2,7 @@
 #include <SDL3/SDL_main.h> /* Exports the SDL_main entry point required by SDLActivity on Android. */
 #include <SDL3/SDL_system.h>
 #include "vulkan_probe.h"
+#include "guest_memory_probe.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -80,6 +81,7 @@ int main(int argc, char **argv)
     SDL_Log("ZA_DIAG_STAGE=native_log_capture_ready path=%s",
             log_directory != NULL ? log_directory : "(unavailable)");
     SDL_Log("ZA_DIAG_STAGE=starting SDL3");
+    za_run_guest_memory_probe();
 
     const SDL_DisplayID display = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode *mode = display ? SDL_GetCurrentDisplayMode(display) : NULL;
