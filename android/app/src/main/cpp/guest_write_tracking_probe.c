@@ -276,10 +276,16 @@ void za_run_guest_write_tracking_probe(void)
     }
 
     const uint64_t features = probe_userfaultfd_features();
+    /* Match the pinned upstream Linux backend exactly: it requests these two
+       UFFD features. PAGEFAULT_FLAG_WP is reported for diagnostics but is not
+       an additional prerequisite in linux.c's wt_init(). */
     const bool wp_ready =
-        (features & UFFD_FEATURE_PAGEFAULT_FLAG_WP) &&
         (features & UFFD_FEATURE_WP_ASYNC) &&
         (features & UFFD_FEATURE_WP_UNPOPULATED);
+    SDL_Log("ZA_WRITE_TRACK required_wp_features async=%s unpopulated=%s pagefault_flag_wp=%s",
+            (features & UFFD_FEATURE_WP_ASYNC) ? "yes" : "no",
+            (features & UFFD_FEATURE_WP_UNPOPULATED) ? "yes" : "no",
+            (features & UFFD_FEATURE_PAGEFAULT_FLAG_WP) ? "yes" : "no");
 
     const long page_size_long = sysconf(_SC_PAGESIZE);
     if (page_size_long <= 0) {

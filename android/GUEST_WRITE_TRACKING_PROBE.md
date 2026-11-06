@@ -26,3 +26,10 @@ This diagnostic checks the optional Linux page-write tracking path used by upstr
 Upstream plat_written_pages() explicitly permits -1 when the host has no page-write tracking. The Vulkan renderer has conservative fallback behavior: it can mark/copy all pages in a queried range and disable GPU-overlap optimization when the write-watch is unavailable. This is slower, but safer than pretending a dirty-page tracker passed or using an unsafe process-wide signal handler.
 
 A diagnostic PASS is only evidence for the tested API sequence. It does not prove the Android backend or game runtime is integrated.
+
+
+## Build #47 — exact upstream feature prerequisite alignment
+
+- Capability probe's write-protect readiness now matches the pinned upstream `runtime/platform/linux.c` implementation: `UFFD_FEATURE_WP_ASYNC` and `UFFD_FEATURE_WP_UNPOPULATED` are the required feature bits.
+- `UFFD_FEATURE_PAGEFAULT_FLAG_WP` remains reported for diagnostics but is not treated as an extra prerequisite, because upstream `wt_init()` does not request it.
+- This removes a possible false-negative classification. It does not enable missing kernel features or change the safe `plat_written_pages() = -1` fallback decision on the current device.

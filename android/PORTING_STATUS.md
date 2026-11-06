@@ -83,3 +83,8 @@ No proprietary game data, keys, firmware, generated game code, or copyrighted as
 - Device-tested = the owner exercised the feature on the stated device and supplied evidence.
 - Runtime integrated = upstream runtime code is actually compiled and called by the Android app.
 - Playable = actual in-game gameplay was observed. This status has not been reached.
+
+
+### Build #47 — upstream feature-gate audit
+
+The diagnostic's `wp_ready` gate now exactly matches the pinned upstream Linux backend: only `UFFD_FEATURE_WP_ASYNC` and `UFFD_FEATURE_WP_UNPOPULATED` are required. `UFFD_FEATURE_PAGEFAULT_FLAG_WP` is logged but is not an additional gate. This corrects a potential false-negative in the probe; the current phone report advertises neither required bit, so the actual device conclusion remains unchanged. Android CI build pending.

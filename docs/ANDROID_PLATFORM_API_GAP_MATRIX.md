@@ -49,3 +49,8 @@ The manifest contains a Java-only MainActivity and a separate-process SDL3 SDLPr
 5. Integrate upstream runtime sources only in a pinned, separately reviewed patch series.
 
 No proprietary game data, keys, firmware, extracted assets, generated game code, or copyrighted material belongs in this repository.
+
+
+### Probe prerequisite correction (Build #47)
+
+The isolated probe now mirrors the pinned upstream Linux backend's exact UFFD feature request: `WP_ASYNC | WP_UNPOPULATED`. The separate `PAGEFAULT_FLAG_WP` capability is still logged but no longer treated as an extra required bit. This prevents false negatives on devices that provide the exact upstream-requested feature pair without advertising the additional event flag. It does not bypass kernel or SELinux restrictions.
