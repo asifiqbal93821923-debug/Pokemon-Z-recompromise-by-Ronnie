@@ -15,9 +15,10 @@
 #endif
 static pthread_mutex_t g_lock=PTHREAD_MUTEX_INITIALIZER;
 static uint64_t g_lo,g_hi;
-static const uint64_t g_page=4096;
-static bool aligned_page(uint64_t x){return (x&(g_page-1))==0;}
+static uint64_t page_size(void){long p=sysconf(_SC_PAGESIZE);return p>0?(uint64_t)p:4096;}
+static bool aligned_page(uint64_t x){return x%page_size()==0;}
 static bool valid_range(uint64_t lo,uint64_t hi){return lo<hi&&aligned_page(lo)&&aligned_page(hi);}
+static bool inside_guest(uint64_t addr,uint64_t size){return g_lo&&size&&addr>=g_lo&&addr<=g_hi&&size<=g_hi-addr;}
 bool plat_reserve_guest(uint64_t lo,uint64_t hi){
  if(!valid_range(lo,hi))return false;
  pthread_mutex_lock(&g_lock);
@@ -30,7 +31,12 @@ bool plat_reserve_guest(uint64_t lo,uint64_t hi){
  pthread_mutex_unlock(&g_lock);
  return ok;
 }
-void plat_commit(uint64_t addr,uint64_t size){(void)addr;(void)size;}
+void plat_commit(uint64_t addr,uint64_t size){
+ pthread_mutex_lock(&g_lock);
+ bool valid=inside_guest(addr,size)&&aligned_page(addr)&&aligned_page(size);
+ pthread_mutex_unlock(&g_lock);
+ (void)valid; // The complete reservation is already backed by a private anonymous mapping.
+}
 bool plat_reset_guest(uint64_t lo,uint64_t hi){
  if(!valid_range(lo,hi))return false;
  pthread_mutex_lock(&g_lock);
@@ -51,7 +57,12 @@ int plat_protect(uint64_t a,uint64_t s,int prot){
  int p;
  switch(prot){case PLAT_PROT_NONE:p=PROT_NONE;break;case PLAT_PROT_READ:p=PROT_READ;break;case PLAT_PROT_RW:p=PROT_READ|PROT_WRITE;break;default:errno=EINVAL;return -1;}
  if(!s||!aligned_page(a)||!aligned_page(s)){errno=EINVAL;return -1;}
- return mprotect((void*)(uintptr_t)a,(size_t)s,p);
+ pthread_mutex_lock(&g_lock);
+ bool inside=inside_guest(a,s);
+ int result=inside?mprotect((void*)(uintptr_t)a,(size_t)s,p):-1;
+ pthread_mutex_unlock(&g_lock);
+ if(!inside)errno=EINVAL;
+ return result;
 }
 uint64_t plat_now_ns(void){struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))return 0;return(uint64_t)t.tv_sec*1000000000ull+(uint64_t)t.tv_nsec;}
 uint64_t plat_thread_cpu_ns(void){struct timespec t;if(clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t))return 0;return(uint64_t)t.tv_sec*1000000000ull+(uint64_t)t.tv_nsec;}
