@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(za_android_sdl3_probe C CXX)
+project(za_android_sdl3_probe C CXX ASM)
 add_subdirectory(SDL EXCLUDE_FROM_ALL)
 
 add_library(za_probe SHARED native_probe.c android_storage_probe.c)
