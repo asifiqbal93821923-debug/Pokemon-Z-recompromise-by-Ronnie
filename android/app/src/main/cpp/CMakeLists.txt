@@ -14,7 +14,7 @@ target_compile_features(za_android_input PUBLIC c_std_11)
 target_compile_options(za_android_input PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(za_android_input PUBLIC SDL3::SDL3)
 
-add_library(main SHARED sdl_probe.c vulkan_probe.c guest_memory_probe.c)
+add_library(main SHARED sdl_probe.c vulkan_probe.c guest_memory_probe.c guest_write_tracking_probe.c)
 target_compile_features(main PRIVATE c_std_11)
 target_compile_options(main PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(main PRIVATE SDL3::SDL3 za_android_input vulkan log)
