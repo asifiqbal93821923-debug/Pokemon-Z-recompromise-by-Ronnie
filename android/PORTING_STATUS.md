@@ -30,3 +30,10 @@ The owner supplied the complete Build #53 diagnostics report from OnePlus CPH294
 - Host/SDL Activity lifecycle logs show pause/stop/destroy followed by host Activity recreation/resume. No native fatal-error line was supplied; the reason is not established.
 
 **Scope:** this validates only the initial Android memory/time API slice in the diagnostic harness. It does not establish full upstream runtime integration, process/filesystem support, renderer compatibility, or playable gameplay.
+
+## Android private storage and AssetManager bridge (diagnostic slice)
+
+- Host Activity passes its app-private files/cache directories and Java AssetManager to the JNI library.
+- Native probe creates separate za-data, za-save and za-cache directories, writes/reads/deletes sentinel files, and reads a project-authored text asset using NDK AAssetManager.
+- This tests only the Java-to-native storage/resource bridge. It does not import game data, implement SAF, or integrate upstream runtime/paths.c.
+- A SAF content:// URI must be read through Android ContentResolver and copied into app-private storage; it must not be passed directly to POSIX open().

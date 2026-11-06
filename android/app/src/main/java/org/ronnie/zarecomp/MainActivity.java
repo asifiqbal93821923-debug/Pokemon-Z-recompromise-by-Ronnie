@@ -21,6 +21,7 @@ import java.nio.file.Files;
 /** Java-only host screen; remains independent from the SDL diagnostic process. */
 public final class MainActivity extends Activity {
     private TextView status;
+    private String storageProbeReport = "Not run yet.";
     private int launchCount;
 
     private void recordHostEvent(String event) {
@@ -85,6 +86,23 @@ public final class MainActivity extends Activity {
         });
         root.addView(nativeButton);
 
+        Button storageButton = new Button(this);
+        storageButton.setText("Run Android storage + AssetManager probe");
+        storageButton.setOnClickListener(v -> {
+            try {
+                System.loadLibrary("za_probe");
+                storageProbeReport = nativeRunStorageProbe(
+                        getFilesDir().getAbsolutePath(),
+                        getCacheDir().getAbsolutePath(), getAssets());
+                status.setText(storageProbeReport);
+            } catch (Throwable error) {
+                storageProbeReport = "ANDROID_STORAGE_BRIDGE result=FAIL "
+                        + error.getClass().getSimpleName() + ": " + error.getMessage();
+                status.setText(storageProbeReport);
+            }
+        });
+        root.addView(storageButton);
+
         Button sdlButton = new Button(this);
         sdlButton.setText("Launch SDL3 diagnostic");
         sdlButton.setOnClickListener(v -> {
@@ -135,6 +153,8 @@ public final class MainActivity extends Activity {
                 }
             }
             report.append("\nApp files: ").append(getFilesDir().getAbsolutePath()).append("\n");
+            report.append("\n=== ANDROID STORAGE BRIDGE ===\n")
+                    .append(storageProbeReport).append('\n');
 
             try {
                 System.loadLibrary("za_probe");
@@ -223,4 +243,6 @@ public final class MainActivity extends Activity {
     }
 
     private static native String nativeGetProbeInfo();
+    private static native String nativeRunStorageProbe(
+            String filesDir, String cacheDir, android.content.res.AssetManager assets);
 }
