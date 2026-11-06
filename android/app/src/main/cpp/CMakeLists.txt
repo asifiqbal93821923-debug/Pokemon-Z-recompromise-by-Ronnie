@@ -41,6 +41,13 @@ file(GLOB ZA_RUNTIME_HLE_SOURCES CONFIGURE_DEPENDS
 file(GLOB ZA_RUNTIME_SERVICE_SOURCES CONFIGURE_DEPENDS
     "${ZA_UPSTREAM_RUNTIME}/services/*.c"
 )
+
+if(ANDROID AND CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    list(APPEND ZA_RUNTIME_HLE_SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/android_fiber_arm64.c"
+        "${CMAKE_CURRENT_LIST_DIR}/android_fiber_arm64.S"
+    )
+endif()
 list(FILTER ZA_RUNTIME_ROOT_SOURCES EXCLUDE REGEX "/platform/(linux|macos|windows)\\.c$")
 set(ZA_RUNTIME_CORE_SOURCES
     ${ZA_RUNTIME_ROOT_SOURCES}
@@ -51,6 +58,7 @@ add_library(za_runtime_core_compilecheck STATIC ${ZA_RUNTIME_CORE_SOURCES})
 target_include_directories(za_runtime_core_compilecheck PRIVATE
     "${ZA_UPSTREAM_RUNTIME}"
     "${ZA_UPSTREAM_RUNTIME}/nvn"
+    "${CMAKE_CURRENT_LIST_DIR}"
     "${ZA_UPSTREAM_ROOT}/third_party/imgui"
     "${ZA_UPSTREAM_ROOT}/third_party/imgui/backends"
     "${ZA_UPSTREAM_ROOT}/third_party/ooz"

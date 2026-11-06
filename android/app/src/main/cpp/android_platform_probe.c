@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "paths.h"
+#include "android_fiber_arm64.h"
 #include <sys/stat.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -78,6 +79,12 @@ int za_run_android_platform_api_probe(void)
         return 15;
     }
     SDL_Log("ZA_ANDROID_RUNTIME_ENV result=PASS linked_platform_symbols=%d app_private_xdg_data_home=yes", linked_symbols);
+    if (!za_android_fiber_context_probe()) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ZA_ANDROID_FIBER result=FAIL mode=AARCH64_CONTEXT_SWITCH");
+        return 17;
+    }
+    SDL_Log("ZA_ANDROID_FIBER result=PASS mode=AARCH64_CONTEXT_SWITCH");
+
     /* Exercise the pinned upstream path manager, not just the SDL private-dir API. */
     rt_paths_init();
     const char *runtime_root = rt_data_root();

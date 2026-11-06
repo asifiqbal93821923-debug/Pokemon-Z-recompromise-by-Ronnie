@@ -75,3 +75,10 @@ The Android-only upstream patch also enlarges the POSIX realpath output buffers 
 ### Reproducible Android/Bionic source edits
 
 CI applies narrowly scoped source edits from android/scripts/patch_upstream_for_android.py rather than a hand-maintained unified diff. The script checks that each upstream anchor occurs exactly once and verifies the final source. It excludes the glibc Linux shim on Android and sizes POSIX realpath output buffers to PATH_MAX in gamebuild.c and main.c, while leaving Windows branches unchanged.
+
+
+## Android arm64 fiber backend
+
+Android Bionic does not expose POSIX getcontext/makecontext/swapcontext. The Android-only source adaptation replaces those calls in the pinned upstream runtime/hle/fiber.c with an AArch64 cooperative context switch. It preserves x19–x30, SP, d8–d15, FPCR and FPSR according to the Android ARM64 ABI. Windows and desktop POSIX branches remain unchanged.
+
+The Android NDK build includes the assembly backend and a native context-switch probe. The probe verifies switching from the calling context to a new stack and resuming twice. This is a focused ABI smoke test; full multi-thread fiber scheduling and game workload stress still require device/runtime testing.
