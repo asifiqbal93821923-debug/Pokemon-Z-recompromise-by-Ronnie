@@ -1,5 +1,8 @@
 #include "guest_memory_probe.h"
 
+#include <SDL3/SDL.h>
+#include <stdbool.h>
+
 #include <errno.h>
 #include <inttypes.h>
 #include <stdint.h>
