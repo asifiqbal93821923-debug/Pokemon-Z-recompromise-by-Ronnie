@@ -28,6 +28,17 @@ jobs:
     steps:
       - name: Checkout port project
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+
+      - name: Verify pinned upstream runtime source
+        run: |
+          test "$(git -C vendor/pokeza-upstream rev-parse HEAD)" = "dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6"
+          test -f vendor/pokeza-upstream/runtime/main.c
+          test -f vendor/pokeza-upstream/runtime/platform.h
+          test -f vendor/pokeza-upstream/runtime/platform/linux.c
+          echo "Pinned upstream runtime source is present at dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6"
 
       - name: Checkout pinned SDL3 source
         uses: actions/checkout@v4
