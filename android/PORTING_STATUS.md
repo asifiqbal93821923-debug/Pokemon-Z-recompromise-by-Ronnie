@@ -4,100 +4,75 @@ Last updated: 2026-11-06
 
 ## Overall state
 
-**Android diagnostic shell is verified on the owner's phone through the first Vulkan frame and guest-window memory smoke test. The actual Pokémon Z-A recompilation runtime is not integrated.** The repository currently contains a research workspace and diagnostic application, not a playable game or game runtime.
+**Android diagnostic shell is verified on the owner's phone through the first Vulkan frame and guest-window memory smoke test. The actual Pokémon Z-A recompilation runtime is not integrated.** This repository is a research workspace and diagnostic application, not a playable game or game runtime.
 
 ## Verified target-device evidence
 
-Device log supplied by the owner from Build #39, Android 16 / kernel `6.1.157-android14-11-o-gdeed0ebc8d5d`:
+Device log supplied by the owner from Build #39, Android 16 / kernel 6.1.157-android14-11-o-gdeed0ebc8d5d:
 
-- Android native ABI: `arm64-v8a`.
-- Device: OnePlus CPH2943; 8 online CPUs; 4096-byte pages.
-- Display/window: 2400 × 1080.
-- GPU: Mali-G615 MC2; vendor ID `0x13B5`; device ID `0xB8A31030`.
-- Vulkan API: 1.3.247.
-- Vulkan instance and Android surface: created.
-- Graphics and present queues: available (queue family 0).
-- Logical device: created.
-- Swapchain: created, extent 2400 × 1080, format 37, six images.
-- First frame: blue frame presented successfully.
-- SDL3 event loop: ready.
-- Touch and multi-touch: DOWN/UP events observed for simultaneous pointer IDs.
-- Guest window: exact 32-GiB range at `0x7000000000` reserved, one-page commit/write/readback, read-only protection, `PROT_NONE`, and release all PASS.
+- Android native ABI: arm64-v8a; OnePlus CPH2943; 8 online CPUs; 4096-byte pages.
+- Display/window: 2400 × 1080; GPU Mali-G615 MC2; Vulkan API 1.3.247.
+- Vulkan instance, Android surface, logical device, graphics/present queues and six-image 2400×1080 swapchain created; first blue frame presented.
+- SDL3 event loop ready; simultaneous touch pointer IDs delivered.
+- Exact 32-GiB guest window at 0x7000000000 reserved; one-page commit/write/readback, read-only protection, PROT_NONE, and release passed.
 
-Build #39 write-tracking evidence: `userfaultfd` opens and an `UFFDIO_API` query with no requested features succeeds (advertised mask `0x10ffe`). Neither `WP_ASYNC` nor `WP_UNPOPULATED` is advertised. Soft-dirty bit 55 was not set after the one-page clear/write probe. `PAGEMAP_SCAN` failed with `EACCES` (permission denied), so its kernel availability is still undetermined. The correct current Android backend behavior is to report written-page tracking as unsupported (`-1`), as allowed by upstream `platform.h`, until a safe alternative is proven.
+### Write-tracking diagnosis from Build #39
 
-These results validate diagnostic operations only. They do not validate upstream written-page tracking, guest fault handling, the upstream renderer, generated game code, audio, storage/import, or gameplay.
+- userfaultfd() opens in UFFD_USER_MODE_ONLY mode and the zero-feature UFFDIO_API query succeeds (mask 0x10ffe).
+- The advertised mask does not contain UFFD_FEATURE_PAGEFAULT_FLAG_WP, WP_ASYNC, or WP_UNPOPULATED. Therefore the kernel does not expose the userfaultfd write-protect path required by upstream async dirty-page tracking.
+- The bit-55 soft-dirty test returned clear. This is expected on AArch64: Linux arm64 does not implement the soft-dirty PTE bit. It is not a bug to fix in the app.
+- PAGEMAP_SCAN returned EACCES in the original probe. That probe asked for PAGE_IS_WRITTEN on an ordinary page without first registering and write-protecting it, so the test was not a valid written-page test. The new Build #40 probe tests the generic PAGE_IS_PRESENT ioctl separately and only tests PAGE_IS_WRITTEN after the full WP setup prerequisites are met.
+- The app manifest requests no dangerous Android runtime permissions, and the Java Activities do not request any. The EACCES is a kernel/procfs ioctl denial, not a user declining Photos/Files permission. There is no safe in-app permission prompt that can grant it.
+- Runtime policy: plat_written_pages() should return -1 on this device until a supported mechanism is proven. Upstream explicitly allows this. Its Vulkan renderer has conservative fallback paths that copy all pages in the queried range and disable GPU-overlap optimization when tracking is unavailable; this can cost performance but avoids false dirty-page reports.
+
+### Android Activity/lifecycle review
+
+The manifest declares two Activities:
+- MainActivity: Java-only host/diagnostics screen in the main app process. It launches the SDL probe and reads/copies the app-private log.
+- SDLProbeActivity: SDL3 diagnostic Activity in the separate :sdlprobe process. It records create/start/resume/pause/stop/destroy and window-focus changes.
+
+The owner's Build #39 log shows SDL Activity create → start → resume → focus true, then pause → focus false → stop, followed by start → resume → focus true. This is a normal background/foreground lifecycle sequence, not evidence of a crash. The pasted report ends during subsequent touch events, so it does not prove what happened after that point. No ACTIVITY_ON_DESTROY appears in the supplied excerpt.
 
 ## Milestones
 
 | Milestone | Status | Evidence / next action |
 |---|---|---|
-| Repository and Android port research plan | Done | Public repository, branch `main` |
-| Upstream platform source audit | Done (source inspection) | `docs/ANDROID_PLATFORM_AUDIT.md` |
+| Repository and Android port research plan | Done | Public repository, branch main |
+| Upstream platform source audit | Done (source inspection) | docs/ANDROID_PLATFORM_AUDIT.md |
 | Android JNI/NDK diagnostic | Device-tested PASS | Native probe; Build #24 report |
 | SDL3 Android launch/event loop | Device-tested PASS | Build #26/#30/#39 logs |
 | Touch and multi-touch delivery | Device-tested PASS | Build #26/#28/#30/#39 logs |
-| Vulkan loader / instance / surface | Device-tested PASS | Build #30/#39 owner logs |
-| Vulkan physical-device / queue selection | Device-tested PASS | Mali-G615 MC2, graphics/present queue family 0 |
-| Vulkan logical device | Device-tested PASS | `ZA_VK_STAGE=logical_device_created` |
-| Vulkan swapchain | Device-tested PASS | 2400×1080, six images |
-| Vulkan first-frame presentation | Device-tested PASS | `ZA_VK_STAGE=first_frame_presented` |
-| Android platform backend (`runtime/platform/android.c`) | Not started | Integrate only after source/dependency pin review |
-| Upstream runtime entry point integration | Not started | Requires lifecycle-aware Android entry path |
-| Exact 32-GiB guest-window reservation/protection | Device-tested PASS | Build #34 and reconfirmed Build #39 |
-| Guest written-page tracking | Device-tested: unavailable on current kernel/policy | Build #39 isolated feature query; return `-1` for now |
-| Android-compatible dependency build | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui and runtime dependencies remain unverified |
-| SAF user-file access/import | Not implemented | Add harmless test-file flow before game-data setup |
-| Actual Z-A runtime startup | Not started | No game runtime or generated game code in this repository |
+| Vulkan first-frame presentation | Device-tested PASS | Build #30/#39 owner logs |
+| Exact 32-GiB guest-window reservation/protection | Device-tested PASS | Build #34/#39 logs |
+| Kernel write-tracking capability | WP features unavailable; AArch64 soft-dirty unsupported; PAGEMAP_SCAN generic permission test pending Build #40 | Use safe upstream fallback; do not force kernel privileges |
+| Android platform backend | Not started | Compile a minimal Android implementation against pinned upstream platform.h |
+| Upstream runtime integration | Not started | Requires lifecycle-aware Android entry path |
+| Android-compatible dependencies | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui/runtime dependencies unverified |
+| SAF file import | Not implemented | Add harmless test-file flow |
+| Actual Z-A runtime startup | Not started | No game runtime/generated game code in this repository |
 | Gameplay / performance | Not tested | No playable Android build exists |
 
-## Build #39 — isolated kernel capability probe
+## Build #40 — corrected capability and lifecycle diagnosis
 
-- Commit: `d705dfb8b253500a3d4a6d7740ce6aaed3c79b91`
-- Workflow run: [#40](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42180881533)
-- CI: successful Android ARM64 debug build; APK archive and APK ZIP integrity verified.
-- Device: owner supplied full diagnostics from OnePlus CPH2943 / Android 16 / kernel 6.1.157.
-- `userfaultfd_open=PASS`; feature query succeeds with mask `0x10ffe`.
-- `WP_ASYNC` and `WP_UNPOPULATED`: not advertised.
-- Soft-dirty bit 55: not set in the test page after clear/write.
-- `PAGEMAP_SCAN`: `EACCES` permission denied; not a definitive unsupported-kernel result.
-- Vulkan first-frame, SDL event loop, touch/multitouch, and 32-GiB guest reservation/protection reconfirmed.
-- Scope: diagnostics only; no actual runtime or gameplay.
+- Source commit: pending CI.
+- Corrects the earlier diagnostic: generic PAGEMAP_SCAN uses PAGE_IS_PRESENT; PAGE_IS_WRITTEN is only attempted after UFFD WP registration and protection.
+- Adds base PAGEFAULT_FLAG_WP and shmem/hugetlb WP feature checks.
+- Reports AArch64 soft-dirty as architecture-unsupported rather than a false FAIL.
+- Separates kernel permission denial from unsupported ioctl and missing WP prerequisites.
+- Scope remains diagnostic only; no runtime/gameplay.
 
-## Build #38 — full diagnostics clipboard
+## Build #39 — original isolated kernel capability probe
 
-- Commit: `e7e701c078cd403cfc292a4ef4eead90fa8de22c`
-- Workflow run: [#38](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42179256198)
-- CI: successful Android ARM64 debug build; APK archive and APK ZIP integrity verified.
-- Added a MainActivity action to copy the complete app-private diagnostic log and device metadata.
-- Owner verified the feature by supplying the copied diagnostics in Build #39 follow-up.
-
-## Build #34 — guest address reservation
-
-- Commit: `8683021e60b4793c026e581feb4b7a22306b5e30`
-- Workflow run: [#34](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42175060697)
-- CI: successful Android ARM64 debug build.
-- Device: owner supplied `ZA_GUEST_MEM result=PASS`.
-- Scope: exact 32-GiB virtual reservation and page-protection smoke test only.
-
-## Build #30 — SDL/Vulkan frame probe
-
-- Commit: `f23387203c81c6149b4de04642a36b9911d825a3`
-- Workflow run: [#30](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42170871991)
-- CI: successful Android ARM64 debug build.
-- Device: owner supplied combined SDL + Vulkan log confirming the diagnostic stages above.
-- Scope: diagnostic shell only, not Pokémon Z-A gameplay.
+- Commit: d705dfb8b253500a3d4a6d7740ce6aaed3c79b91
+- Workflow: [#40](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42180881533)
+- CI: successful Android ARM64 debug build; APK ZIP integrity verified.
+- Owner supplied full OnePlus CPH2943 / Android 16 diagnostics.
+- Vulkan first-frame, SDL event loop, touch/multitouch and guest-window reservation/protection reconfirmed.
+- Scope: diagnostic shell only; no actual runtime or gameplay.
 
 ## Next engineering milestone
 
-Do not label the current app as a port. The upstream audit is pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). The next engineering step is a compile-tested Android platform backend skeleton against upstream `runtime/platform.h`, initially returning `-1` for `plat_written_pages()` on this device. Keep the diagnostic shell separate from the actual game runtime. The backend work should include:
-
-1. An explicit Android NDK build target that leaves desktop targets unchanged.
-2. A minimal Android implementation of the upstream platform contract.
-3. Guest-window reservation/protection tests in the real SDL process.
-4. Lifecycle-safe SDL/Vulkan surface recreation and repeated pause/resume testing.
-5. App-private data paths and a SAF test-file import.
-6. A dependency/license matrix for every native library.
+Keep the diagnostic shell separate from the game runtime. The next engineering step is a compile-tested Android platform backend skeleton against upstream runtime/platform.h, with safe unsupported results where Android lacks an equivalent. Add lifecycle-safe surface recreation, app-private paths and SAF import before attempting runtime integration.
 
 No proprietary game data, keys, firmware, generated game code, or copyrighted assets may be committed to this repository.
 
