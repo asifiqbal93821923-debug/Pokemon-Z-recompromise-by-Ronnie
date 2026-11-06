@@ -10,7 +10,7 @@ This document is an implementation plan. It is not evidence that an Android back
 |---|---|---|---|
 | Guest address window | Reserve exact `[lo, hi)`; lazy backing; reset entire range | Dedicated Bionic implementation; exact-address safety test first; preserve reservation ownership | Not device-tested |
 | Commit / protect | Commit range; change page protection | `mmap`/ `mprotect` only after exact page alignment and range validation | Not implemented |
-| Written-page tracking | Windows write-watch; optional Linux userfaultfd + PAGEMAP_SCAN | Initially return unsupported (`-1`) unless a supported Android mechanism is proven; never emulate by unsafe global signal tricks | Not implemented |
+| Written-page tracking | Windows write-watch; optional Linux userfaultfd + PAGEMAP_SCAN | Android 16 / kernel 6.1.157: `userfaultfd` opens, combined `WP_ASYNC | WP_UNPOPULATED` API negotiation returns `EINVAL`; return unsupported (`-1`) until an isolated supported path or safe fallback is device-tested | Native tracking unsupported on current test; backend not implemented |
 | Page state / memory usage | Optional diagnostic state and process/guest memory figures | Return unknown where Android cannot report reliably; no fabricated metrics | Not implemented |
 | Monotonic timing | Nanosecond monotonic clock and deadline sleep | Android clock APIs / `clock_nanosleep` availability to be checked with NDK; use monotonic clock | Not implemented |
 | Thread scheduling | Guest priority mapping, realtime pacing and CPU time | Conservative pthread scheduling; gracefully handle Android permission/policy denial; no assumption of realtime privilege | Not implemented |
@@ -30,9 +30,13 @@ Upstream `runtime/main.c` reserves the guest window from a constructor before `m
 
 ### 2. Optional Linux write tracking
 
-The Linux backend's write tracking relies on `userfaultfd` and `PAGEMAP_SCAN` (Linux 6.7+). Android's kernel version string alone does not prove these interfaces are enabled or permitted to an app. Initial Android backend should explicitly report no write tracking unless a device-tested supported path exists.
+The Linux backend's write tracking relies on `userfaultfd` and `PAGEMAP_SCAN` (Linux 6.7+). Build #38 tested the target device: `userfaultfd()` with `UFFD_USER_MODE_ONLY` opens, but requesting `UFFD_FEATURE_WP_ASYNC | UFFD_FEATURE_WP_UNPOPULATED` in `UFFDIO_API` returns `EINVAL`. `WP_ASYNC` was introduced in Linux 6.7, later than this device's 6.1.157 base; vendor backports remain possible, so test each feature on a fresh descriptor and query the negotiated feature mask before concluding. `PAGEMAP_SCAN` was not reached or tested. The Android backend must gracefully return unsupported (`-1`) unless a safe, measured mechanism exists; never use unsafe global signal handlers as a substitute.
 
-### 3. Filesystem and SAF
+#### 2a. Candidate fallback investigation
+
+A possible fallback is soft-dirty tracking through `/proc/self/clear_refs` and the soft-dirty bit in `/proc/self/pagemap`. This is not yet validated on the target Android build. Clearing soft-dirty is process-wide rather than limited to the guest mapping, so it may interfere with other runtime bookkeeping; measure access permissions, correctness, scan cost across the 32-GiB range, and coordination requirements before adopting it. If those costs or semantics are unacceptable, keep write tracking unsupported.
+
+## 3. Filesystem and SAF
 
 The runtime expects ordinary filesystem paths for extracted files, saves, settings, caches and logs. Android Storage Access Framework returns content URIs and file descriptors, not necessarily stable filesystem paths. Implement a copy/import bridge into app-private storage with explicit user consent; never pretend a content URI is a path.
 

@@ -8,7 +8,7 @@ Last updated: 2026-11-06
 
 ## Verified target-device evidence
 
-Device log supplied by the owner from Build #30:
+Device log supplied by the owner from Build #30, reconfirmed in the Build #38 full diagnostics report:
 
 - Android native ABI: `arm64-v8a` (confirmed by prior JNI probe).
 - Display/window: 2400 × 1080.
@@ -22,7 +22,7 @@ Device log supplied by the owner from Build #30:
 - SDL3 event loop: ready.
 - Touch and multi-touch: DOWN/UP events observed for multiple pointer IDs.
 
-Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000000000`, one-page RW commit/write/readback, read-only protection, `PROT_NONE`, and full `munmap` release. This validates only the tested mmap/mprotect sequence; it does not validate upstream written-page tracking, fault handling, guest memory semantics, the upstream renderer, generated game code, audio, storage/import, or gameplay.
+Build #38 reconfirms the exact 32-GiB guest-window reservation at `0x7000000000`, one-page RW commit/write/readback, read-only protection, `PROT_NONE`, and full `munmap` release. The same report confirms `userfaultfd()` opens, but the `UFFDIO_API` request for `UFFD_FEATURE_WP_ASYNC | UFFD_FEATURE_WP_UNPOPULATED` fails with `EINVAL`. This is consistent with the device's 6.1 kernel lacking the Linux 6.7 `WP_ASYNC` feature; support for either feature individually and `PAGEMAP_SCAN` has not yet been isolated. This validates only the tested mmap/mprotect sequence; it does not validate upstream written-page tracking, fault handling, guest memory semantics, the upstream renderer, generated game code, audio, storage/import, or gameplay.
 
 ## Milestones
 
@@ -41,7 +41,7 @@ Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000
 | Android platform backend (`runtime/platform/android.c`) | Not started | Upstream runtime source is not present in this workspace; integrate only after a license/dependency/source pin review |
 | Upstream runtime entry point integration | Not started | Requires lifecycle-aware Android entry path |
 | Exact 32-GiB guest-window reservation/protection | Device-tested PASS | Build #34: exact address, one-page commit/write/readback, read-only/`PROT_NONE`, release |
-| Guest written-page tracking / fault handling | Not tested | Probe Android `userfaultfd`/`PAGEMAP_SCAN` availability and permissions; design a safe fallback if unavailable |
+| Guest written-page tracking / fault handling | Device-tested: async userfaultfd tracking unavailable with requested feature set | Build #38: `userfaultfd` open PASS; `UFFDIO_API` combined feature request FAIL (`EINVAL`); individual feature negotiation, `PAGEMAP_SCAN`, and fallback remain untested |
 | Android-compatible dependency build | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui and runtime dependencies remain unverified |
 | SAF user-file access/import | Not implemented | Add a harmless test-file flow before game-data setup |
 | Actual Z-A runtime startup | Not started | No game runtime or generated game code in this repository |
@@ -62,6 +62,16 @@ Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000
 - Clipboard content is intended to be pasted into the support conversation; it does not upload logs automatically or create a live connection to ChatGPT.
 - Build/device verification is pending for the commit that introduces this feature.
 
+## Build #38 — full diagnostics and guest write-tracking result
+
+- Commit: `e7e701c078cd403cfc292a4ef4eead90fa8de22c`
+- Workflow run: [#38](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42179256198)
+- CI: successful Android ARM64 debug build; APK archive and APK ZIP integrity verified.
+- Device: owner supplied the full clipboard report from Android 16 / kernel `6.1.157-android14-11-o-gdeed0ebc8d5d` / Mali-G615 MC2.
+- Reconfirmed Vulkan surface, logical device, 2400×1080 swapchain, first-frame present, SDL event loop, 32-GiB guest reservation and page protection.
+- Write tracking: `userfaultfd` syscall opened successfully; `UFFDIO_API` with `WP_ASYNC | WP_UNPOPULATED` returned `EINVAL`. This does not test `PAGEMAP_SCAN` because setup stopped before registration/pagemap open.
+- Multi-touch: simultaneous pointer IDs up to at least 3 were observed. The report contains DOWN/UP events; continuous motion-to-game-action mapping is not tested.
+
 ## Build #30
 
 - Commit: `f23387203c81c6149b4de04642a36b9911d825a3`
@@ -72,7 +82,7 @@ Build #34 additionally confirms exact 32-GiB guest-window reservation at `0x7000
 
 ## Next engineering milestone
 
-Do not label the current app as a port. The upstream audit is now pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). Its `runtime/rt.h` defines the non-Apple guest window as `0x7000000000`–`0x7800000000`, a 32-GiB reservation. The exact-range reservation/protection smoke test passed on the owner's phone in Build #34. The next gate is to test the Linux-specific written-page tracking/fault mechanisms used by upstream and establish a compatible Android implementation before importing runtime code. Then create a separate Android runtime integration branch/patch series with:
+Do not label the current app as a port. The upstream audit is now pinned to `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6` (branch `pokemon-za`). Its `runtime/rt.h` defines the non-Apple guest window as `0x7000000000`–`0x7800000000`, a 32-GiB reservation. The exact-range reservation/protection smoke test passed on the owner's phone in Build #34. The next gate is to isolate Android `userfaultfd` feature negotiation (query supported features and test each feature on a fresh descriptor), determine whether `PAGEMAP_SCAN` exists, and evaluate a carefully scoped soft-dirty fallback. Do not block the Android backend on Linux-only write tracking: initially expose `plat_written_pages()` as unsupported unless a safe, device-tested mechanism is available. Then create a separate Android runtime integration branch/patch series with:
 
 1. An explicit Android NDK build target that leaves desktop targets unchanged.
 2. A minimal, compile-tested Android implementation of the upstream platform contract.
