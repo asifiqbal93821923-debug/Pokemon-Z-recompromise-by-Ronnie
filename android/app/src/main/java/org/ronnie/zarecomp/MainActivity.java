@@ -76,11 +76,12 @@ public final class MainActivity extends Activity {
                 result = "ANDROID_STORAGE_BRIDGE result=FAIL "
                         + error.getClass().getSimpleName() + ": " + error.getMessage();
             }
-            storageProbeReport = result;
+            final String completedResult = result;
+            storageProbeReport = completedResult;
             persistStorageProbeReport();
             runOnUiThread(() -> {
                 storageProbeRunning = false;
-                if (status != null) status.setText(result);
+                if (status != null) status.setText(completedResult);
             });
         }, "za-android-storage-probe").start();
     }
