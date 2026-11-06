@@ -49,3 +49,10 @@ This file translates the upstream `runtime/platform.h` interface into Android im
 5. Vulkan instance/device/surface/swapchain initialize on the target phone.
 6. SAF selection can read a test file safely; no proprietary game file is needed for this test.
 7. Only then proceed to runtime/game-data integration.
+
+
+## Device evidence update — 2026-11-06
+
+Build #30 was exercised on the owner's Android phone. The supplied log confirms Vulkan loader/instance, Android surface, Mali-G615 MC2 physical-device detection, graphics/present queue family 0, logical-device creation, a 2400×1080 swapchain with six images, and successful presentation of a blue first frame. SDL3 event loop and multi-pointer touch events were also observed.
+
+This evidence validates the probe path only. It does not validate upstream renderer compatibility, guest-memory semantics, or game runtime execution. The next acceptance gate remains a separately compiled Android platform backend plus an exact guest-memory reservation/protection test.

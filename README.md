@@ -4,7 +4,7 @@ This repository tracks an experimental effort to investigate an **Android-native
 
 ## Important status
 
-**Research/scaffolding only. No Android game build or APK exists yet.** The upstream project currently documents Windows as its primary target and Linux as experimental; Android is not a supported target. An Android port requires substantial platform, build, graphics, lifecycle, storage and input work.
+**Diagnostic Android APKs exist, but no Android game build or playable APK exists.** The owner has now verified SDL3 touch/multitouch and a Vulkan first frame on a Mali-G615 MC2 device. The upstream project currently documents Windows as its primary target and Linux as experimental; Android is not a supported target. An Android game port still requires substantial runtime, platform, build, graphics, lifecycle, storage and dependency integration.
 
 This repository is a planning and porting workspace. It does not currently contain the upstream game engine, Nintendo code/assets, extracted game data, generated game code, keys, firmware, or a playable game.
 

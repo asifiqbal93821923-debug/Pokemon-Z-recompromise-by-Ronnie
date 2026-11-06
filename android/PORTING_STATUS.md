@@ -4,41 +4,73 @@ Last updated: 2026-11-06
 
 ## Overall state
 
-**The first arm64 JNI probe APK has built successfully. SDL3 integration source is now committed and its Android build is running in GitHub Actions.** Neither APK has been installed on the target phone. No game runtime or gameplay is included yet.
+**Android diagnostic shell is verified on the owner's phone through the first Vulkan frame. The actual Pokémon Z-A recompilation runtime is not integrated.** The repository currently contains a research workspace and diagnostic application, not a playable game or game runtime.
+
+## Verified target-device evidence
+
+Device log supplied by the owner from Build #30:
+
+- Android native ABI: `arm64-v8a` (confirmed by prior JNI probe).
+- Display/window: 2400 × 1080.
+- GPU: Mali-G615 MC2; vendor ID `0x13B5`; device ID `0xB8A31030`.
+- Vulkan API: 1.3.247.
+- Vulkan instance and Android surface: created.
+- Graphics and present queues: available (queue family 0).
+- Logical device: created.
+- Swapchain: created, extent 2400 × 1080, format 37, six images.
+- First frame: blue frame presented successfully.
+- SDL3 event loop: ready.
+- Touch and multi-touch: DOWN/UP events observed for multiple pointer IDs.
+
+This confirms the diagnostic path only. It does not prove the upstream game renderer, guest memory model, generated game code, audio, storage/import, or gameplay works on Android.
 
 ## Milestones
 
 | Milestone | Status | Evidence / next action |
 |---|---|---|
-| Project repository and planning docs | Done | Public repository, branch `main` |
-| Upstream platform audit | Done (source inspection) | `docs/ANDROID_PLATFORM_AUDIT.md` |
-| Basic Android JNI/NDK probe | Build passed | CI run [#7](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42094435912); APK artifact uploaded |
-| SDL3 source integration | Source scaffold committed | Pinned upstream `release-3.4.18`; Java SDLActivity source set; CMake builds SDL3 + `main` shared library |
-| SDL3 Android smoke build | In progress | CI checks out SDL3 and builds the arm64 debug APK; verify Gradle/CMake result |
-| SDL3 touch/event loop | Implemented in probe source; build pending | `android/app/src/main/cpp/sdl_probe.c`; logs finger down/up/motion and changes diagnostic screen color |
-| Android Vulkan surface/swapchain | Not started | Next after SDL3 build passes |
-| Android runtime platform backend | Not started | Dedicated `runtime/platform/android.c) required; do not rename Linux backend |
-| SAF game-file import | Design exists separately | Integrate descriptor bridge and local-copy fallback |
-| Target-device install test | Not started | Requires APK installation on owner's Android 16 phone |
-| Game data setup/gameplay | Not started | Only after native runtime and renderer work |
+| Repository and Android port research plan | Done | Public repository, branch `main` |
+| Upstream platform source audit | Done (source inspection) | `docs/ANDROID_PLATFORM_AUDIT.md` |
+| Android JNI/NDK diagnostic | Device-tested PASS | Prior native probe and Build #24 device report |
+| SDL3 Android launch/event loop | Device-tested PASS | Build #26/#30; SDL event loop ready |
+| Touch and multi-touch delivery | Device-tested PASS | Build #26/#28/#30 logs |
+| Vulkan loader / instance / surface | Device-tested PASS | Build #30 owner log |
+| Vulkan physical-device / queue selection | Device-tested PASS | Mali-G615 MC2, graphics/present queue family 0 |
+| Vulkan logical device | Device-tested PASS | `ZA_VK_STAGE=logical_device_created` |
+| Vulkan swapchain | Device-tested PASS | `ZA_VK_STAGE=swapchain_created`; 2400×1080, six images |
+| Vulkan first-frame presentation | Device-tested PASS | `ZA_VK_STAGE=first_frame_presented` |
+| Android platform backend (`runtime/platform/android.c`) | Not started | Upstream runtime source is not present in this workspace; integrate only after a license/dependency/source pin review |
+| Upstream runtime entry point integration | Not started | Requires lifecycle-aware Android entry path |
+| Guest virtual-memory compatibility | Not tested | Must test exact guest address reservation/protection on Android |
+| Android-compatible dependency build | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui and runtime dependencies remain unverified |
+| SAF user-file access/import | Not implemented | Add a harmless test-file flow before game-data setup |
+| Actual Z-A runtime startup | Not started | No game runtime or generated game code in this repository |
+| Gameplay / performance | Not tested | No playable Android build exists |
 
-## Target device (reported)
+## Build #30
 
-- Android 16
-- RAM 8 GB; storage 128 GB
-- SoC/GPU and Vulkan extensions not verified
+- Commit: `f23387203c81c6149b4de04642a36b9911d825a3`
+- Workflow run: [#30](https://github.com/asifiqbal93821923-debug/Pokemon-Z-recompromise-by-Ronnie/actions/runs/42170871991)
+- CI: successful Android ARM64 debug build.
+- Device: owner supplied a combined SDL + Vulkan log confirming the diagnostic stages above.
+- Scope: diagnostic shell only, not Pokémon Z-A gameplay.
 
-## SDL3 probe scope
+## Next engineering milestone
 
-The SDL3 smoke app uses the official SDL Android Activity glue and a native SDL event/render loop. It is intended to test Activity startup, video initialization, renderer creation, touch event delivery, and shutdown. It is not the ZA Recomp runtime and does not include Vulkan swapchain code, game assets, importer, or final on-screen controls.
+Do not label the current app as a port. First pin and review the exact upstream `pokemon-za` commit, license and dependency versions. Then create a separate Android runtime integration branch/patch series with:
 
-SDL3 is pinned to upstream tag `release-3.4.18` in CI. The integration approach follows the official SDL3 Android README: https://wiki.libsdl.org/SDL3/README-android.
+1. An explicit Android NDK build target that leaves desktop targets unchanged.
+2. A minimal, compile-tested Android implementation of the upstream platform contract.
+3. A guest-memory reservation/protection test before attempting runtime startup.
+4. A lifecycle-safe SDL/Vulkan host loop with swapchain recreation on surface changes.
+5. App-private writable paths and a SAF test-file reader.
+6. A dependency/license matrix for every native library.
 
-## Rules for status updates
+No proprietary game data, keys, firmware, generated game code, or copyrighted assets may be committed to this repository.
 
-- "Implemented" means code exists.
-- "Build passed" means a real build completed successfully and its output was inspected.
-- "Installed" means the APK was installed on a device.
-- "Tested" means the feature was exercised on the stated device.
-- "Playable" means actual in-game gameplay was observed and recorded.
-- Never infer a later status from an earlier one.
+## Status language
+
+- Implemented = code exists.
+- Build passed = CI/device build completed and artifact was checked.
+- Device-tested = the owner exercised the feature on the stated device and supplied evidence.
+- Runtime integrated = upstream runtime code is actually compiled and called by the Android app.
+- Playable = actual in-game gameplay was observed. This status has not been reached.
