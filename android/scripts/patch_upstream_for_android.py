@@ -70,8 +70,8 @@ def main() -> None:
         fiber_source = fiber_source.replace(old, new, 1)
 
     replace_fiber(
-        '#include <sys/mman.h>\\n#include <ucontext.h>',
-        '#include <sys/mman.h>\\n#ifndef __ANDROID__\\n#include <ucontext.h>\\n#endif',
+        '#include <sys/mman.h>\n#include <ucontext.h>',
+        '#include <sys/mman.h>\n#ifndef __ANDROID__\n#include <ucontext.h>\n#endif',
         "ucontext include guard",
     )
     replace_fiber(
