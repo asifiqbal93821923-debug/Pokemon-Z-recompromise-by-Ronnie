@@ -11,8 +11,8 @@ android {
         applicationId 'org.ronnie.zarecomp'
         minSdk 28
         targetSdk 36
-        versionCode 12
-        versionName '0.6.3-phase1-pathfix'
+        versionCode 13
+        versionName '0.6.4-phase1-mainfix'
 
         ndk {
             abiFilters 'arm64-v8a'
@@ -43,7 +43,7 @@ android {
         debug {
             // Unique package so this build installs side-by-side with earlier diagnostic
             // APKs even when GitHub Actions uses a different ephemeral signing key.
-            applicationIdSuffix '.phase1pathfix'
+            applicationIdSuffix '.phase1mainfix'
             debuggable true
         }
         release {

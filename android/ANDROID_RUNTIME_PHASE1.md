@@ -67,3 +67,6 @@ The upstream platform header includes a glibc-only Linux compatibility header wh
 The native diagnostic now calls the pinned upstream rt_paths_init() / rt_data_root() APIs after the Android platform bootstrap. The Android linker pulls the actual upstream runtime/paths.c object from the compiled core archive into libmain.so. On the target phone, the test asserts that the chosen runtime root is exactly the app-private XDG data base plus zarecomp, exists as a directory, and is readable/writable.
 
 This exercises one real upstream runtime subsystem through the Android backend. It does not yet start runtime/main.c, boot a game, use the Vulkan renderer, or launch generated game code.
+
+
+The Android-only upstream patch also enlarges the POSIX realpath output buffers in gamebuild.c and main.c to PATH_MAX. This is required by Bionic's compile-time realpath buffer contract; Windows buffers and code paths remain unchanged.

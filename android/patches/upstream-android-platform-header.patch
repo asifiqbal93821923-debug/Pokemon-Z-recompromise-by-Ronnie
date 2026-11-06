@@ -29,3 +29,25 @@ index 0000000..0000000 100644
 +        char zc[PATH_MAX], rel[PATH_MAX];
 +#endif
          snprintf(rel, sizeof rel, "%s" SEP "zig-cache", work);
+diff --git a/runtime/main.c b/runtime/main.c
+index 0000000..0000000 100644
+--- a/runtime/main.c
++++ b/runtime/main.c
+@@ -5,6 +5,9 @@
+ #include <stdbool.h>
+ #include <stdlib.h>
+ #include <string.h>
++#ifndef _WIN32
++#include <limits.h>
++#endif
+ 
+ #include "game_addresses.h"
+ #include "gamelib.h"
+@@ -299,7 +302,11 @@
+-    static char arg_root[1024];
++#ifdef _WIN32
++    static char arg_root[1024];
++#else
++    static char arg_root[PATH_MAX];
++#endif
+     for (int i = 1; i < argc; i++) {

@@ -184,3 +184,8 @@ Owner supplied the full Build #69 diagnostics report from OnePlus CPH2943 / Andr
 - The Android diagnostic shared library now links that archive and calls upstream rt_paths_init()/rt_data_root(), forcing runtime/paths.c into the APK link.
 - The on-device probe checks the selected path is the writable app-private XDG_DATA_HOME/zarecomp directory.
 - This is not yet the complete runtime entry point or game boot. UI/renderer backends, generated game library, Activity lifecycle bridge, and helper-process redesign remain.
+
+
+### Bionic path-buffer compatibility fixes
+
+The Android-only CI patch now adjusts the POSIX realpath output buffers in upstream gamebuild.c and main.c to PATH_MAX, leaving Windows-specific branches untouched. These fixes came from actual Android NDK diagnostics; the next CI run verifies the complete core compile set again.
