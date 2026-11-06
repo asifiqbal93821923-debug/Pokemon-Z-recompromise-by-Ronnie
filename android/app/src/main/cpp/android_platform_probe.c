@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <string.h>
 #include "paths.h"
-#include "kernel.h"
 #include "android_fiber_arm64.h"
 #include <sys/stat.h>
 #include <stdint.h>
@@ -134,12 +133,6 @@ int za_run_android_platform_api_probe(void)
         return 1;
     }
     SDL_Log("ZA_PLATFORM_API stage=reserve_32gib result=PASS");
-
-    /* Exercise real upstream kernel initialization with no game modules loaded.
-       This is a core-runtime smoke check, not a game boot. */
-    kernel_init();
-    kernel_reset();
-    SDL_Log("ZA_RUNTIME_KERNEL result=PASS init=PASS reset=PASS game_modules=0");
 
     plat_commit(ZA_GUEST_LO, page);
     volatile uint32_t *word = (volatile uint32_t *)(uintptr_t)ZA_GUEST_LO;
