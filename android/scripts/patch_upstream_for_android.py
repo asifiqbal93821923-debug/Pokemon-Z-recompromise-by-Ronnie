@@ -62,12 +62,9 @@ def main() -> None:
     time_service = root / "runtime/services/time.c"
     if not time_service.is_file():
         raise SystemExit(f"missing pinned upstream source file: {time_service}")
-    replace_once(
-        time_service,
-        "    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);",
-        "    struct timespec ts = {0};\\n    (void)clock_gettime(CLOCK_REALTIME, &ts);",
-    )
+    old_time_call = "    struct timespec ts;" + chr(10) + "    timespec_get(&ts, TIME_UTC);"
+    new_time_call = "    struct timespec ts = {0};" + chr(10) + "    (void)clock_gettime(CLOCK_REALTIME, &ts);"
+    replace_once(time_service, old_time_call, new_time_call)
 
     fiber = root / "runtime/hle/fiber.c"
     fiber_source = fiber.read_text(encoding="utf-8")
