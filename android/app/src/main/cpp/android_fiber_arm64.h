@@ -2,6 +2,7 @@
 #define ZA_ANDROID_FIBER_ARM64_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 
 #if !defined(__ANDROID__) || !defined(__aarch64__)
@@ -19,6 +20,7 @@ typedef struct {
 void za_android_fiber_context_swap(ZaAndroidFiberContext *from,
                                   const ZaAndroidFiberContext *to);
 void za_android_fiber_context_bootstrap(void);
+bool za_android_fiber_context_probe(void);
 void za_android_fiber_return_trap(void);
 
 static inline void za_android_fiber_context_init(ZaAndroidFiberContext *context,

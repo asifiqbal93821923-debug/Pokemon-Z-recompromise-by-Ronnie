@@ -70,6 +70,11 @@ def main() -> None:
         fiber_source = fiber_source.replace(old, new, 1)
 
     replace_fiber(
+        '#include <sys/mman.h>\\n#include <ucontext.h>',
+        '#include <sys/mman.h>\\n#ifndef __ANDROID__\\n#include <ucontext.h>\\n#endif',
+        "ucontext include guard",
+    )
+    replace_fiber(
         '#include "../hle.h"\n',
         '#include "../hle.h"\n#ifdef __ANDROID__\n#include "android_fiber_arm64.h"\n#if !defined(__aarch64__)\n#error "Android fibers currently require arm64-v8a"\n#endif\n#endif\n',
         "Android fiber header",
