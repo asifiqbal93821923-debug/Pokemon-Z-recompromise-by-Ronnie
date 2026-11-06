@@ -51,6 +51,20 @@ def main() -> None:
         '#ifdef _WIN32\n    static char arg_root[1024];\n#else\n    static char arg_root[PATH_MAX];\n#endif',
     )
 
+    # Android apps cannot replace their process with desktop exec(). The
+    # guest address window must be available on first launch; fail clearly
+    # instead of attempting an unsupported re-exec loop.
+    replace_once(
+        entry,
+        '    const char *tries = getenv("LARECOMP_REEXEC");',
+        '#ifdef __ANDROID__\n    fprintf(stderr, "FATAL: Android cannot re-exec to obtain the guest address range; close conflicting apps and retry\\n");\n    exit(1);\n#else\n    const char *tries = getenv("LARECOMP_REEXEC");',
+    )
+    replace_once(
+        entry,
+        '    perror("re-exec");\n    exit(1);',
+        '    perror("re-exec");\n    exit(1);\n#endif',
+    )
+
     checks = {
         platform: '#elif defined(__linux__) && !defined(__ANDROID__)',
         gamebuild: 'char zc[PATH_MAX], rel[PATH_MAX];',
