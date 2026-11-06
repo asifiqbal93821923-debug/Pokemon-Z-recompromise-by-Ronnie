@@ -64,7 +64,7 @@ def main() -> None:
         raise SystemExit(f"missing pinned upstream source file: {time_service}")
     replace_once(
         time_service,
-        "    struct timespec ts;\\n    timespec_get(&ts, TIME_UTC);",
+        "    struct timespec ts;\n    timespec_get(&ts, TIME_UTC);",
         "    struct timespec ts = {0};\\n    (void)clock_gettime(CLOCK_REALTIME, &ts);",
     )
 
