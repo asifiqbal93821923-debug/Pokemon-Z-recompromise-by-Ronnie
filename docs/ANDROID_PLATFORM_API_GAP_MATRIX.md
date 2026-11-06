@@ -8,45 +8,57 @@ This document is an implementation plan. It is not evidence that an Android back
 
 | Upstream API group | Upstream contract | Android implementation decision | Current status |
 |---|---|---|---|
-| Guest address window | Reserve exact `[lo, hi)`; lazy backing; reset entire range | Dedicated Bionic implementation; exact-address safety test first; preserve reservation ownership | Not device-tested |
-| Commit / protect | Commit range; change page protection | `mmap`/ `mprotect` only after exact page alignment and range validation | Not implemented |
-| Written-page tracking | Windows write-watch; optional Linux userfaultfd + PAGEMAP_SCAN | Android 16 / kernel 6.1.157: `userfaultfd` opens, combined `WP_ASYNC | WP_UNPOPULATED` API negotiation returns `EINVAL`; return unsupported (`-1`) until an isolated supported path or safe fallback is device-tested | Native tracking unsupported on current test; backend not implemented |
+| Guest address window | Reserve exact [lo, hi); lazy backing; reset entire range | Dedicated Bionic implementation; exact-address safety test first; preserve reservation ownership | Exact 32-GiB reserve and release device-tested PASS |
+| Commit / protect | Commit range; change page protection | `mmap`/`mprotect` only after exact page alignment and range validation | One-page commit/readback/protection smoke test PASS; full backend not implemented |
+| Written-page tracking | Windows write-watch; optional Linux userfaultfd + PAGEMAP_SCAN | Return unsupported (-1) on this device unless a safe, measured alternative is proven | Build #39: userfaultfd opens/API query succeeds, but WP_ASYNC and WP_UNPOPULATED are not advertised; PAGEMAP_SCAN returns EACCES; soft-dirty bit 55 was not set in the one-page probe |
 | Page state / memory usage | Optional diagnostic state and process/guest memory figures | Return unknown where Android cannot report reliably; no fabricated metrics | Not implemented |
-| Monotonic timing | Nanosecond monotonic clock and deadline sleep | Android clock APIs / `clock_nanosleep` availability to be checked with NDK; use monotonic clock | Not implemented |
+| Monotonic timing | Nanosecond monotonic clock and deadline sleep | Android clock APIs / `clock_nanosleep` availability to be checked with NDK; use monotonic clock | Diagnostic monotonic clock read PASS; platform contract not implemented |
 | Thread scheduling | Guest priority mapping, realtime pacing and CPU time | Conservative pthread scheduling; gracefully handle Android permission/policy denial; no assumption of realtime privilege | Not implemented |
-| CPU count / system info | CPU, core/thread, RAM and OS strings | Android system properties / sysconf; avoid exposing private user identifiers | Not implemented |
+| CPU count / system info | CPU, core/thread, RAM and OS strings | Android system properties / sysconf; avoid exposing private user identifiers | Diagnostic device/CPU reporting available; platform contract not implemented |
 | Process lifecycle | `plat_init`, executable path, `plat_exec`, terminate | Android Activity/SDL process owns lifecycle. Upstream constructor-time reservation and re-exec-on-collision must be redesigned; do not call desktop re-exec blindly | Not implemented |
 | Child processes | Spawn, wait, kill helper processes | Decide which helpers can become in-process library calls or worker components; executable child-process behavior requires separate Android validation | Not implemented |
 | Filesystem | remove tree, symlink detection, open, rename | App-private filesystem for writable data; SAF URI/descriptor bridge for user-selected files; no assumption that content URI is a POSIX path | Not implemented |
-| Diagnostics | symbol/module lookup, backtrace, crash notice, signal handlers | NDK-compatible backtrace and tombstone/log integration; UI notice must be marshalled to Java main thread | Not implemented |
+| Diagnostics | symbol/module lookup, backtrace, crash notice, signal handlers | NDK-compatible backtrace and tombstone/log integration; UI notice must be marshalled to Java main thread | Diagnostic log capture exists; platform contract not implemented |
 | Window/screen state | Desktop screen hash / HWND-style information | Not applicable on Android; return false / omit | Not implemented |
-| Vulkan/SDL surface | Upstream SDL Vulkan renderer and device code | Use SDL Android surface lifecycle; rebuild swapchain on surface loss/size change; current probe proves only first-frame presentation | Probe only |
+| Vulkan/SDL surface | Upstream SDL Vulkan renderer and device code | Use SDL Android surface lifecycle; rebuild swapchain on surface loss/size change; current probe proves only first-frame presentation | Probe only; first-frame presentation device-tested PASS |
 
 ## Critical runtime blockers
 
 ### 1. Constructor-time address reservation
 
-Upstream `runtime/main.c` reserves the guest window from a constructor before `main()`. If the address is unavailable, desktop code attempts to re-exec itself. Android must reserve the range in the SDL process before guest-runtime initialization, and collision recovery must be designed around Android process/activity lifecycle. A diagnostic probe must not be mistaken for a complete solution.
+Upstream `runtime/main.c` reserves the guest window from a constructor before `main()`. If the address is unavailable, desktop code attempts to re-exec itself. Android must reserve the range in the SDL process before guest-runtime initialization, and collision recovery must be designed around Android process/activity lifecycle. The diagnostic probe's exact 32-GiB `mmap` reservation is evidence for that isolated call only, not a complete runtime solution.
 
 ### 2. Optional Linux write tracking
 
-The Linux backend's write tracking relies on `userfaultfd` and `PAGEMAP_SCAN` (Linux 6.7+). Build #38 tested the target device: `userfaultfd()` with `UFFD_USER_MODE_ONLY` opens, but requesting `UFFD_FEATURE_WP_ASYNC | UFFD_FEATURE_WP_UNPOPULATED` in `UFFDIO_API` returns `EINVAL`. `WP_ASYNC` was introduced in Linux 6.7, later than this device's 6.1.157 base; vendor backports remain possible, so test each feature on a fresh descriptor and query the negotiated feature mask before concluding. `PAGEMAP_SCAN` was not reached or tested. The Android backend must gracefully return unsupported (`-1`) unless a safe, measured mechanism exists; never use unsafe global signal handlers as a substitute.
+The upstream Linux backend's write tracking uses `userfaultfd` asynchronous write protection and `PAGEMAP_SCAN`. The upstream implementation documents Linux 6.7+ for this path. The target phone reports Android 16 with kernel `6.1.157-android14-11-o-gdeed0ebc8d5d`.
 
-#### 2a. Candidate fallback investigation
+Build #39 isolated the kernel capabilities on the actual device:
 
-A possible fallback is soft-dirty tracking through `/proc/self/clear_refs` and the soft-dirty bit in `/proc/self/pagemap`. This is not yet validated on the target Android build. Clearing soft-dirty is process-wide rather than limited to the guest mapping, so it may interfere with other runtime bookkeeping; measure access permissions, correctness, scan cost across the 32-GiB range, and coordination requirements before adopting it. If those costs or semantics are unacceptable, keep write tracking unsupported.
+- `userfaultfd()` with `UFFD_USER_MODE_ONLY`: opens successfully.
+- `UFFDIO_API` feature query with `features=0`: succeeds; advertised mask `0x10ffe`.
+- `UFFD_FEATURE_WP_ASYNC`: not advertised.
+- `UFFD_FEATURE_WP_UNPOPULATED`: not advertised.
+- `/proc/self/pagemap`: readable for the one-page diagnostic probe.
+- `/proc/self/clear_refs`: write of soft-dirty clear command succeeded far enough for the subsequent pagemap read; after a write, bit 55 was still not set in the returned entry (`0x8100000000000000`).
+- `PAGEMAP_SCAN`: ioctl failed with `EACCES` (permission denied). This is not proof that the ioctl is absent; the permission boundary prevented a capability conclusion.
+
+Therefore the upstream asynchronous write-watch path cannot be enabled on this tested device. The soft-dirty probe also did not demonstrate a usable fallback. The Android backend should return unsupported (`-1`) from `plat_written_pages()` for now. Do not add a process-wide signal handler or assume soft-dirty works. The upstream platform contract explicitly allows `-1` where write tracking is unavailable.
+
+#### 2a. Fallback decision
+
+Do not adopt soft-dirty tracking based on this result. The single-page test did not observe bit 55 after clearing and writing; even if a future Android build exposes it, clearing soft-dirty is process-wide and a 32-GiB scan may be expensive. Revisit only with a reliable correctness test, permission review, whole-range cost measurement, and synchronization design. A software-instrumented write-barrier path may be researched separately, but must be validated against the generated guest memory access code before implementation.
 
 ## 3. Filesystem and SAF
 
 The runtime expects ordinary filesystem paths for extracted files, saves, settings, caches and logs. Android Storage Access Framework returns content URIs and file descriptors, not necessarily stable filesystem paths. Implement a copy/import bridge into app-private storage with explicit user consent; never pretend a content URI is a path.
 
-### 4. Helper processes
+## 4. Helper processes
 
 Upstream uses child processes for tools such as seed generation and game-file extraction. The Android design must inventory each helper and decide whether it is built as an in-process library, a supported app-private executable, or a separate Android component. Do not assume desktop `posix_spawn` behavior.
 
-### 5. Vulkan lifecycle
+## 5. Vulkan lifecycle
 
-Build #30 confirms Vulkan instance, Android surface, graphics/present queues, logical device, swapchain and one blue first frame on the target device. It does not validate upstream NVN emulation, descriptor/pipeline features, guest GPU memory mapping, shader compilation, FSR2, swapchain recreation after pause/resume, or sustained frame pacing.
+Build #39 owner log reconfirms Vulkan instance, Android surface, Mali-G615 MC2 physical device, graphics/present queues, logical device, 2400×1080 swapchain with six images, and a blue first frame. It does not validate upstream NVN emulation, descriptor/pipeline features, guest GPU memory mapping, shader compilation, FSR2, swapchain recreation after pause/resume, or sustained frame pacing.
 
 ## Acceptance order
 
@@ -62,4 +74,4 @@ Build #30 confirms Vulkan instance, Android surface, graphics/present queues, lo
 
 - No proprietary game data, keys, firmware, extracted assets, saves, generated game code or copyrighted material in Git.
 - No claim of gameplay or compatibility from a diagnostic APK.
-- No automatic game execution or trade-like unattended actions.
+- No automatic game execution or unattended actions.
