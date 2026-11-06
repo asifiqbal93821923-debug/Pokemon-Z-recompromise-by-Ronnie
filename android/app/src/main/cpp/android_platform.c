@@ -58,7 +58,9 @@ bool plat_reset_guest(uint64_t lo,uint64_t hi){
  return ok;
 }
 /* Android kernel lacks the required UFFD WP / PAGEMAP_SCAN capabilities on the tested target.
-   The upstream contract explicitly permits -1; callers must use conservative full-range copies. */
+   The upstream contract explicitly permits -1. The pinned Vulkan renderer's AUTO path
+   detects missing page tracking and disables GPU overlap, returning to its normal fence wait.
+   Do not force GPU overlap ON without a separately validated tracking/hash-watch path. */
 int plat_written_pages(uint64_t a,uint64_t s,uint64_t*p,int m,uint64_t*pg){(void)a;(void)s;(void)p;(void)m;(void)pg;return -1;}
 int plat_written_pages_peek(uint64_t a,uint64_t s){(void)a;(void)s;return -1;}
 bool plat_page_state(uint64_t a,char*o,size_t n){(void)a;(void)o;(void)n;return false;}

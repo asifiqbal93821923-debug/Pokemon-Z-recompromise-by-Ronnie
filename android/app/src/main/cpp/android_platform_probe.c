@@ -109,8 +109,9 @@ int za_run_android_platform_api_probe(void)
     SDL_Log("ZA_PLATFORM_API stage=commit_write_read_protect result=PASS");
 
     /* Android 6.1 on the tested device has no usable kernel dirty-page API.
-       Validate the upstream contract: -1 means tracking unavailable, so the
-       renderer must use its conservative full-range-copy path. */
+       Validate the upstream contract: -1 means tracking unavailable. The pinned
+       Vulkan renderer AUTO path must then disable GPU overlap and use its normal
+       same-frame fence wait; do not force overlap ON without validated tracking. */
     uint64_t dirty_pages[4] = {0};
     uint64_t dirty_page_size = 0;
     const int dirty_count = plat_written_pages(ZA_GUEST_LO, page,
@@ -123,7 +124,7 @@ int za_run_android_platform_api_probe(void)
         (void)munmap((void *)(uintptr_t)ZA_GUEST_LO, (size_t)(ZA_GUEST_HI - ZA_GUEST_LO));
         return 14;
     }
-    SDL_Log("ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED written_pages=-1 peek=-1");
+    SDL_Log("ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_RENDERER_AUTO_OVERLAP_OFF_REQUIRED written_pages=-1 peek=-1");
 
 
     if (plat_protect(ZA_GUEST_LO, page, PLAT_PROT_NONE) != 0) {

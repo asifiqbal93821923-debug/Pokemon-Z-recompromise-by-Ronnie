@@ -8,7 +8,7 @@ This file translates the pinned upstream runtime/platform.h interface into Andro
 |---|---|---|
 | Guest address space | NDK mmap/mprotect; validate exact range and collision behavior | Required; fail safely if exact range cannot be reserved |
 | Commit/reset | Preserve guest memory semantics and page alignment | Required |
-| Written-page tracking | Use UFFD async WP only if advertised and validated | Return -1 on the tested device; renderer has a conservative full-range-copy fallback |
+| Written-page tracking | Use UFFD async WP only if advertised and validated | Return -1 on the tested device; pinned Vulkan renderer AUTO path disables GPU overlap and uses its normal same-frame fence wait |
 | Memory usage/page state | Use supported process metrics only | Unknown/false where unavailable |
 | Monotonic time | clock_gettime(CLOCK_MONOTONIC) | Required |
 | Sleep | Android/Bionic-compatible absolute sleep; handle interruption | Required |
@@ -61,4 +61,4 @@ This validates diagnostic paths only, not the upstream renderer, complete guest-
 
 ## Write-tracking fallback decision (Android ARM64)
 
-The tested Android 16 / kernel 6.1 device does not expose the upstream userfaultfd async-WP prerequisites, PAGEMAP_SCAN is denied, and ARM64 soft-dirty bit 55 is not a valid fallback. Do not attempt to enable these through Kotlin runtime permissions or weaken SELinux. Android `plat_written_pages()` and `plat_written_pages_peek()` therefore return the upstream-defined sentinel `-1` (tracking unavailable). The renderer must treat `-1` as a hard instruction to use the conservative full-range-copy path and disable dirty-page/GPU-overlap optimizations. This preserves correctness at a performance cost. The Android platform probe now verifies the sentinel contract on-device. This is a validated fallback policy, not a working dirty-page tracker; a real tracker remains unsupported until implemented and tested.
+The tested Android 16 / kernel 6.1 device does not expose the upstream userfaultfd async-WP prerequisites, PAGEMAP_SCAN is denied, and ARM64 soft-dirty bit 55 is not a valid fallback. Do not attempt to enable these through Kotlin runtime permissions or weaken SELinux. Android `plat_written_pages()` and `plat_written_pages_peek()` therefore return the upstream-defined sentinel `-1` (tracking unavailable). The renderer must treat `-1` as unavailable tracking. In the pinned upstream Vulkan renderer, AUTO mode probes `pages_cpu_written()` and disables GPU overlap when tracking is unavailable, returning to the normal same-frame fence wait. This preserves the renderer's established synchronization path at a performance cost. The Android platform probe now verifies the sentinel contract on-device. This is a validated fallback policy, not a working dirty-page tracker; a real tracker remains unsupported until implemented and tested.

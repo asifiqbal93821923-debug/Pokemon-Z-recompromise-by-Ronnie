@@ -23,7 +23,7 @@ This diagnostic checks the optional Linux page-write tracking path used by upstr
 
 ## Runtime fallback
 
-Upstream plat_written_pages() explicitly permits -1 when the host has no page-write tracking. The Vulkan renderer has conservative fallback behavior: it can mark/copy all pages in a queried range and disable GPU-overlap optimization when the write-watch is unavailable. This is slower, but safer than pretending a dirty-page tracker passed or using an unsafe process-wide signal handler.
+Upstream plat_written_pages() explicitly permits -1 when the host has no page-write tracking. In the pinned upstream Vulkan renderer (`runtime/nvn/vulkan/exec.c`), AUTO mode checks `pages_cpu_written()` and disables GPU overlap when tracking is unavailable; the normal same-frame fence wait is used instead. Do not force `LARECOMP_GPU_OVERLAP=1` or the GPU_OVERLAP compatibility setting ON on this Android path unless a separately validated tracking/hash-watch mode is implemented. This is safer than pretending a dirty-page tracker passed or using an unsafe process-wide signal handler.
 
 A diagnostic PASS is only evidence for the tested API sequence. It does not prove the Android backend or game runtime is integrated.
 
@@ -37,4 +37,4 @@ A diagnostic PASS is only evidence for the tested API sequence. It does not prov
 
 ## Build #68 — Android safe fallback contract
 
-The Android platform API probe now calls `plat_written_pages()` and `plat_written_pages_peek()` on a committed guest page and requires both to return the upstream-defined `-1` sentinel. It logs `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED` only when the sentinel contract is honored. The Android backend comments explain that the caller must use conservative full-range copies. This does not claim dirty-page tracking works; it verifies safe degradation. The renderer must honor this sentinel before the actual game runtime can be considered integrated.
+The Android platform API probe calls `plat_written_pages()` and `plat_written_pages_peek()` on a committed guest page and requires both to return the upstream-defined `-1` sentinel. It logs `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_RENDERER_AUTO_OVERLAP_OFF_REQUIRED` only when the sentinel contract is honored. The pinned upstream Vulkan renderer's AUTO path disables GPU overlap when page tracking is unavailable and returns to the normal same-frame fence wait. This does not claim dirty-page tracking or Android runtime integration works; the actual renderer setting and runtime call path still require an Android build/device test.

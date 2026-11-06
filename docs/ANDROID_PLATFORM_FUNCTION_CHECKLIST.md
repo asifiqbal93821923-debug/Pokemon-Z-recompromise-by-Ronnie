@@ -89,7 +89,7 @@ OnePlus CPH2943, Android 16 / SDK 36, arm64-v8a, kernel
 3. Keep unsupported APIs explicit; do not return fake success or dummy process handles.
 4. Add app-private path/context plumbing from Java before implementing path APIs.
 5. Audit every `plat_spawn`, `plat_exec`, `plat_relaunch`, and `plat_terminate` call site before defining Android behavior.
-6. Verify renderer fallback when `plat_written_pages()` returns -1.
+6. Verify the pinned Vulkan renderer's AUTO path disables GPU overlap when `plat_written_pages()` returns -1; ensure Android does not force GPU_OVERLAP ON or `LARECOMP_GPU_OVERLAP=1` without a separately validated tracking/hash-watch path.
 7. Only then link the backend into the upstream runtime target.
 
 No ROM/NSP/XCI, keys, firmware, proprietary game assets, generated game code or saves belong in this repository.

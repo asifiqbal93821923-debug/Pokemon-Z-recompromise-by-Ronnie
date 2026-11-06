@@ -149,3 +149,19 @@ Owner supplied a second Build #67 report from OnePlus CPH2943 / Android 16 (SDK 
 - Added an explicit Android platform comment: `plat_written_pages()` and `plat_written_pages_peek()` return the upstream contract's `-1` sentinel when tracking is unavailable; callers must fall back to conservative full-range copies.
 - Extended the Android platform API diagnostic to exercise both functions against a committed guest page and require `-1`, logging `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED` only when the contract is met.
 - This resolves the unsafe assumption/blocked-kernel dependency at the platform API boundary. It does NOT implement dirty-page tracking, and the real upstream renderer still must be integrated and verified to honor the `-1` fallback before this can be considered runtime-complete.
+
+### Build #69 — owner device report: Android write-tracking fallback PASS (2026-11-06)
+
+Owner supplied the full Build #69 diagnostics report from OnePlus CPH2943 / Android 16 (SDK 36) / arm64-v8a:
+
+- `ANDROID_STORAGE_BRIDGE result=PASS`: private directories, file round-trip and NDK AssetManager read passed.
+- `ZA_PLATFORM_API result=PASS`: system info, exact 32-GiB reservation, commit/write/readback, read-only and PROT_NONE protection, reset-to-zero, out-of-range rejection, monotonic/thread CPU clocks, absolute sleep, CPU count, filesystem operations and release passed. APK executable path remains explicitly UNSUPPORTED_EXPECTED; the Java/AssetManager bridge is not yet wired as a production guest executable path.
+- `ZA_GUEST_MEM result=PASS`: exact reservation at 0x7000000000, one-page commit/write/readback/protection and release passed.
+- `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED written_pages=-1 peek=-1`: both Android platform API functions returned the upstream -1 sentinel as required. This confirms safe capability reporting only; it does not test the real Vulkan renderer's AUTO fallback.
+- Capability evidence remains unchanged: userfaultfd opens and UFFDIO_API query succeeds (mask 0x10ffe), but required WP features are not advertised; PAGEMAP_SCAN generic ioctl is denied with EACCES; ARM64 soft-dirty bit 55 was not observed on the three test pages. Do not mark dirty-page tracking supported.
+- SDL3 window/renderer/event loop and single-/multi-touch events passed. Vulkan Android surface, Mali-G615 MC2 device (API 1.3.247), logical device, graphics/present queues, 2400x1080 six-image swapchain and first blue frame passed.
+- SAF import in this `.writefallback` package was not run. The previously verified 4,325,966,911-byte import remains in the separate `.recovery` package; private storage is not shared. No re-import is needed for this diagnostic result.
+
+**Scope:** Build #69 is still a diagnostic harness, not the upstream game runtime. No NSP parsing/decryption, game asset loading, recompilation, or gameplay was demonstrated.
+
+**Renderer source audit:** At pinned upstream commit `dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6`, `runtime/nvn/vulkan/exec.c` checks `pages_cpu_written(HEAP_BASE, 4096, ...)`. In AUTO mode, when no page tracking is available, it sets GPU overlap OFF and logs that it is using the normal full fence wait. An explicit GPU_OVERLAP ON setting or `LARECOMP_GPU_OVERLAP=1` can override AUTO; Android integration must not force that override without validating the alternate watch path. The renderer behavior itself has not yet been exercised on Android.
