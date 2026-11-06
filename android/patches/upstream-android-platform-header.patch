@@ -33,7 +33,7 @@ diff --git a/runtime/main.c b/runtime/main.c
 index 0000000..0000000 100644
 --- a/runtime/main.c
 +++ b/runtime/main.c
-@@ -3,5 +3,8 @@
+@@ -3,6 +3,9 @@
  #include <stdbool.h>
  #include <stdlib.h>
  #include <string.h>
@@ -43,7 +43,7 @@ index 0000000..0000000 100644
  
  #include "game_addresses.h"
  #include "gamelib.h"
-@@ -299,2 +299,6 @@
+@@ -299,2 +302,6 @@
 -    static char arg_root[1024];
 +#ifdef _WIN32
 +    static char arg_root[1024];
