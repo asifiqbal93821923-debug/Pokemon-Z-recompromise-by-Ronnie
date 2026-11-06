@@ -1,8 +1,8 @@
 diff --git a/runtime/platform.h b/runtime/platform.h
-index 7f95e5b..0000000 100644
+index 1127dd5..0000000 100644
 --- a/runtime/platform.h
 +++ b/runtime/platform.h
-@@ -8,7 +8,7 @@
+@@ -4,5 +4,5 @@
  #ifdef _WIN32
  #include "platform/win_compat.h"
 -#elif defined(__linux__)
