@@ -57,6 +57,8 @@ bool plat_reset_guest(uint64_t lo,uint64_t hi){
  pthread_mutex_unlock(&g_lock);
  return ok;
 }
+/* Android kernel lacks the required UFFD WP / PAGEMAP_SCAN capabilities on the tested target.
+   The upstream contract explicitly permits -1; callers must use conservative full-range copies. */
 int plat_written_pages(uint64_t a,uint64_t s,uint64_t*p,int m,uint64_t*pg){(void)a;(void)s;(void)p;(void)m;(void)pg;return -1;}
 int plat_written_pages_peek(uint64_t a,uint64_t s){(void)a;(void)s;return -1;}
 bool plat_page_state(uint64_t a,char*o,size_t n){(void)a;(void)o;(void)n;return false;}

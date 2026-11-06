@@ -141,3 +141,11 @@ Owner supplied a second Build #67 report from OnePlus CPH2943 / Android 16 (SDK 
 - No game runtime, NSP parsing/decryption, game asset loading, recompilation, or playable gameplay was demonstrated.
 
 **Next technical work:** implement a dedicated Android executable-path / asset access adapter only after reviewing upstream platform contracts; investigate a safe software dirty-page tracking design that can be validated on Android ARM64. Keep unsupported status until correctness is demonstrated. Do not ask the owner to re-import the large file unless a later test specifically requires it.
+
+
+### Build #68 — safe Android write-tracking fallback contract
+
+- Device evidence showed Android 16 / kernel 6.1 lacks the required userfaultfd WP features, PAGEMAP_SCAN is denied, and ARM64 soft-dirty bit 55 is not a supported substitute.
+- Added an explicit Android platform comment: `plat_written_pages()` and `plat_written_pages_peek()` return the upstream contract's `-1` sentinel when tracking is unavailable; callers must fall back to conservative full-range copies.
+- Extended the Android platform API diagnostic to exercise both functions against a committed guest page and require `-1`, logging `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED` only when the contract is met.
+- This resolves the unsafe assumption/blocked-kernel dependency at the platform API boundary. It does NOT implement dirty-page tracking, and the real upstream renderer still must be integrated and verified to honor the `-1` fallback before this can be considered runtime-complete.

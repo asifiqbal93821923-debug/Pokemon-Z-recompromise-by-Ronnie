@@ -57,3 +57,8 @@ This validates diagnostic paths only, not the upstream renderer, complete guest-
 - Android ARM64 workflow run #47 completed successfully against exact commit `8b4b494538f4c235039a3740a1bfbb34fb0eb984`.
 - APK artifact ID `13486973222`; APK ZIP integrity verified; SHA-256 `a5d1c692776398ac43c4534bc2ed6e7f8bf3e71a51296b19e3f2f7ae26916992`.
 - This verifies the isolated diagnostics app compiles. It does not implement or verify the upstream Android platform backend.
+
+
+## Write-tracking fallback decision (Android ARM64)
+
+The tested Android 16 / kernel 6.1 device does not expose the upstream userfaultfd async-WP prerequisites, PAGEMAP_SCAN is denied, and ARM64 soft-dirty bit 55 is not a valid fallback. Do not attempt to enable these through Kotlin runtime permissions or weaken SELinux. Android `plat_written_pages()` and `plat_written_pages_peek()` therefore return the upstream-defined sentinel `-1` (tracking unavailable). The renderer must treat `-1` as a hard instruction to use the conservative full-range-copy path and disable dirty-page/GPU-overlap optimizations. This preserves correctness at a performance cost. The Android platform probe now verifies the sentinel contract on-device. This is a validated fallback policy, not a working dirty-page tracker; a real tracker remains unsupported until implemented and tested.

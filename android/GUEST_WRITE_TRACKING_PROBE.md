@@ -33,3 +33,8 @@ A diagnostic PASS is only evidence for the tested API sequence. It does not prov
 - Capability probe's write-protect readiness now matches the pinned upstream `runtime/platform/linux.c` implementation: `UFFD_FEATURE_WP_ASYNC` and `UFFD_FEATURE_WP_UNPOPULATED` are the required feature bits.
 - `UFFD_FEATURE_PAGEFAULT_FLAG_WP` remains reported for diagnostics but is not treated as an extra prerequisite, because upstream `wt_init()` does not request it.
 - This removes a possible false-negative classification. It does not enable missing kernel features or change the safe `plat_written_pages() = -1` fallback decision on the current device.
+
+
+## Build #68 — Android safe fallback contract
+
+The Android platform API probe now calls `plat_written_pages()` and `plat_written_pages_peek()` on a committed guest page and requires both to return the upstream-defined `-1` sentinel. It logs `ZA_WRITE_TRACK fallback result=PASS mode=NO_TRACKER_FULL_RANGE_COPY_REQUIRED` only when the sentinel contract is honored. The Android backend comments explain that the caller must use conservative full-range copies. This does not claim dirty-page tracking works; it verifies safe degradation. The renderer must honor this sentinel before the actual game runtime can be considered integrated.
