@@ -26,11 +26,11 @@ Upstream Linux write tracking uses userfaultfd asynchronous write protection plu
 
 Build #39 returned userfaultfd_open=PASS and an UFFDIO_API(features=0) query with mask 0x10ffe. That mask omits UFFD_FEATURE_PAGEFAULT_FLAG_WP, UFFD_FEATURE_WP_ASYNC, and UFFD_FEATURE_WP_UNPOPULATED; therefore the required userfaultfd write-protect path is unavailable on this tested kernel configuration.
 
-The soft-dirty bit 55 is not a viable ARM64 fallback. Linux arm64 does not implement the soft-dirty PTE bit. Do not mark this as an application failure or keep retrying it.
+The soft-dirty bit 55 was not observed in the supplied device report. Upstream arm64 kernel 6.1 lacks the required ARCH_HAS_SOFT_DIRTY implementation; vendor backports are possible, so this is a device/kernel result rather than a universal AArch64 statement.
 
-The earlier PAGEMAP_SCAN check was not a valid PAGE_IS_WRITTEN test: it queried an ordinary page without UFFD WP registration/protection. It also received EACCES. Build #40 separates the generic PAGE_IS_PRESENT ioctl permission/capability test from the written-page test, which is attempted only after the complete UFFD WP prerequisites are available.
+Upstream PAGEMAP_SCAN was introduced in Linux 6.7, while this device reports kernel 6.1.157. The original ioctl returned EACCES, which indicates a procfs/SELinux policy block before support could be established; a vendor backport cannot be ruled out. The original PAGE_IS_WRITTEN query also lacked UFFD WP registration/protection. Build #44 separates a generic PAGE_IS_PRESENT ioctl test from written-page tracking and classifies EACCES/EPERM, ENOTTY, and EINVAL separately. PAGE_IS_WRITTEN remains skipped unless the required UFFD WP features are advertised.
 
-The app manifest has no dangerous runtime permission declarations and the Activities do not request permissions. EACCES is a kernel/procfs ioctl restriction, not a declined Android storage permission. Do not bypass SELinux, root the device, or claim an app permission can enable the ioctl.
+The app manifest has no `<uses-permission>` entries. EACCES is not evidence that the user declined an Android storage permission; it is a procfs/SELinux ioctl restriction. There is no safe app permission dialog that grants this access. Do not bypass SELinux or root the device.
 
 ### Safe runtime fallback
 
@@ -38,7 +38,7 @@ Upstream platform.h allows plat_written_pages() to return -1 when write tracking
 
 ## Activity lifecycle review
 
-The manifest contains a Java-only MainActivity and a separate-process SDL3 SDLProbeActivity. The owner-supplied Build #39 log shows create/start/resume/focus, then pause/focus-loss/stop, followed by start/resume/focus. This is consistent with normal background/foreground transitions, not a crash. The excerpt ends during touch input and does not include a final destroy/exit result. Repeated surface recreation and Vulkan swapchain rebuild remain untested.
+The manifest contains a Java-only MainActivity and a separate-process SDL3 SDLProbeActivity. Build #39 shows SDL Activity create/start/resume/focus, then pause/focus-loss/stop, followed by start/resume/focus. This is consistent with normal background/foreground transitions, not a crash. The excerpt ends during touch input and does not include a final destroy/exit result. Build #45 adds independent host Activity lifecycle logging; repeated surface recreation and Vulkan swapchain rebuild remain untested.
 
 ## Remaining Android backend work
 

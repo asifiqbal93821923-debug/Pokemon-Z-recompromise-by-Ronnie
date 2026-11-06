@@ -20,18 +20,18 @@ Device log supplied by the owner from Build #39, Android 16 / kernel 6.1.157-and
 
 - userfaultfd() opens in UFFD_USER_MODE_ONLY mode and the zero-feature UFFDIO_API query succeeds (mask 0x10ffe).
 - The advertised mask does not contain UFFD_FEATURE_PAGEFAULT_FLAG_WP, WP_ASYNC, or WP_UNPOPULATED. Therefore the kernel does not expose the userfaultfd write-protect path required by upstream async dirty-page tracking.
-- The bit-55 soft-dirty test returned clear. This is expected on AArch64: Linux arm64 does not implement the soft-dirty PTE bit. It is not a bug to fix in the app.
-- PAGEMAP_SCAN returned EACCES in the original probe. That probe asked for PAGE_IS_WRITTEN on an ordinary page without first registering and write-protecting it, so the test was not a valid written-page test. The new Build #40 probe tests the generic PAGE_IS_PRESENT ioctl separately and only tests PAGE_IS_WRITTEN after the full WP setup prerequisites are met.
+- The bit-55 soft-dirty test returned clear. Do not generalize this to all AArch64 kernels: upstream arm64 kernel 6.1 lacks the required ARCH_HAS_SOFT_DIRTY implementation; a vendor backport is possible but has not been demonstrated on this phone. The result is NOT_OBSERVED on this device, not a proven universal ARM64 limitation.
+- PAGEMAP_SCAN was introduced upstream in Linux 6.7; this phone reports kernel 6.1.157. The original ioctl returned EACCES, so Android procfs/SELinux policy blocked the app before kernel ioctl support could be established. The original PAGE_IS_WRITTEN query also lacked UFFD write-protect registration, so it was not a valid written-page test. Build #44 separates generic PAGE_IS_PRESENT probing from written-page tracking and labels permission denial separately. A vendor backport remains unverified.
 - The app manifest requests no dangerous Android runtime permissions, and the Java Activities do not request any. The EACCES is a kernel/procfs ioctl denial, not a user declining Photos/Files permission. There is no safe in-app permission prompt that can grant it.
 - Runtime policy: plat_written_pages() should return -1 on this device until a supported mechanism is proven. Upstream explicitly allows this. Its Vulkan renderer has conservative fallback paths that copy all pages in the queried range and disable GPU-overlap optimization when tracking is unavailable; this can cost performance but avoids false dirty-page reports.
 
 ### Android Activity/lifecycle review
 
-The manifest declares two Activities:
+The manifest declares no `<uses-permission>` entries, so there is no storage/media runtime permission for the user to have declined. It declares two Activities:
 - MainActivity: Java-only host/diagnostics screen in the main app process. It launches the SDL probe and reads/copies the app-private log.
 - SDLProbeActivity: SDL3 diagnostic Activity in the separate :sdlprobe process. It records create/start/resume/pause/stop/destroy and window-focus changes.
 
-The owner's Build #39 log shows SDL Activity create → start → resume → focus true, then pause → focus false → stop, followed by start → resume → focus true. This is a normal background/foreground lifecycle sequence, not evidence of a crash. The pasted report ends during subsequent touch events, so it does not prove what happened after that point. No ACTIVITY_ON_DESTROY appears in the supplied excerpt.
+The owner's Build #39 log shows SDL Activity create → start → resume → focus true, then pause → focus false → stop, followed by start → resume → focus true. This is a normal background/foreground lifecycle sequence, not evidence of a crash. The pasted report ends during subsequent touch events, so it does not prove what happened after that point. No ACTIVITY_ON_DESTROY appears in the supplied excerpt. Build #45 adds separate MainActivity lifecycle breadcrumbs so both declared Activities can be reviewed.
 
 ## Milestones
 
@@ -44,7 +44,7 @@ The owner's Build #39 log shows SDL Activity create → start → resume → foc
 | Touch and multi-touch delivery | Device-tested PASS | Build #26/#28/#30/#39 logs |
 | Vulkan first-frame presentation | Device-tested PASS | Build #30/#39 owner logs |
 | Exact 32-GiB guest-window reservation/protection | Device-tested PASS | Build #34/#39 logs |
-| Kernel write-tracking capability | WP features unavailable; AArch64 soft-dirty unsupported; PAGEMAP_SCAN generic permission test pending Build #40 | Use safe upstream fallback; do not force kernel privileges |
+| Kernel write-tracking capability | Required UFFD WP features absent; soft-dirty not observed; PAGEMAP_SCAN blocked by policy / base kernel 6.1 predates upstream 6.7 | Use safe upstream fallback; do not force kernel privileges |
 | Android platform backend | Not started | Compile a minimal Android implementation against pinned upstream platform.h |
 | Upstream runtime integration | Not started | Requires lifecycle-aware Android entry path |
 | Android-compatible dependencies | Not started | SDL3 probe only; FFmpeg/shaderc/ImGui/runtime dependencies unverified |
@@ -52,13 +52,13 @@ The owner's Build #39 log shows SDL Activity create → start → resume → foc
 | Actual Z-A runtime startup | Not started | No game runtime/generated game code in this repository |
 | Gameplay / performance | Not tested | No playable Android build exists |
 
-## Build #40 — corrected capability and lifecycle diagnosis
+## Build #44 — kernel/policy-aware capability diagnostics
 
-- Source commit: pending CI.
-- Corrects the earlier diagnostic: generic PAGEMAP_SCAN uses PAGE_IS_PRESENT; PAGE_IS_WRITTEN is only attempted after UFFD WP registration and protection.
-- Adds base PAGEFAULT_FLAG_WP and shmem/hugetlb WP feature checks.
-- Reports AArch64 soft-dirty as architecture-unsupported rather than a false FAIL.
-- Separates kernel permission denial from unsupported ioctl and missing WP prerequisites.
+- Probe source commit: `a90a4e9b5404c03504c224f525deef2027acca5a`.
+- Logs the exact kernel release and identifies upstream PAGEMAP_SCAN as a Linux 6.7+ interface; a 6.1 vendor backport is not assumed.
+- Separates EACCES/EPERM policy denial, ENOTTY unsupported ioctl, and EINVAL ABI mismatch.
+- Tests generic PAGE_IS_PRESENT; skips PAGE_IS_WRITTEN unless required UFFD WP features are advertised.
+- Repeats soft-dirty checks across three pages and reports NOT_OBSERVED without falsely claiming universal AArch64 behavior.
 - Scope remains diagnostic only; no runtime/gameplay.
 
 ## Build #39 — original isolated kernel capability probe

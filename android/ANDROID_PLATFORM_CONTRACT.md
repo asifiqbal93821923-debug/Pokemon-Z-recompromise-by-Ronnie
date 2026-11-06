@@ -43,9 +43,9 @@ OnePlus CPH2943 / Android 16 / arm64-v8a:
 - 32-GiB guest virtual address reservation and one-page protection sequence PASS.
 - Multi-pointer touch events observed.
 - UFFD opens and feature query succeeds; advertised mask 0x10ffe omits PAGEFAULT_FLAG_WP, WP_ASYNC, and WP_UNPOPULATED.
-- Soft-dirty is unsupported on AArch64; bit 55 is not a valid fallback.
-- Original PAGEMAP_SCAN EACCES came from a probe that did not establish WP prerequisites. Build #40 will test generic PAGE_IS_PRESENT separately and only query PAGE_IS_WRITTEN after valid WP setup.
-- No dangerous Android runtime permissions are requested. Kernel ioctl denial is not a user permission decline.
+- Soft-dirty bit 55 was not observed on this device. Stock upstream arm64 kernel 6.1 lacks the required soft-dirty architecture support; OEM backport remains unverified.
+- Original PAGEMAP_SCAN EACCES is a procfs/SELinux policy denial; upstream PAGEMAP_SCAN first appeared in Linux 6.7, later than this device's 6.1 base kernel. Build #44 now tests generic PAGE_IS_PRESENT separately and skips PAGE_IS_WRITTEN unless all UFFD WP prerequisites are advertised.
+- The manifest declares no Android permissions. Kernel/procfs ioctl denial is not a user permission decline.
 
 The Build #39 Activity sequence (create/start/resume → pause/stop → start/resume) is consistent with normal background/foreground transitions. It is not evidence of a crash. Surface recreation remains untested.
 
