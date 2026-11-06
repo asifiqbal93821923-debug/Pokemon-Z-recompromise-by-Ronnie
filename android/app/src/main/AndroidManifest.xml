@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="false"
+        android:label="Pokémon Z-A Android Diagnostics"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name=".SDLProbeActivity"
+            android:configChanges="locale|orientation|screenSize|uiMode|keyboard|keyboardHidden|navigation|density|smallestScreenSize|screenLayout"
+            android:exported="false"
+            android:process=":sdlprobe"
+            android:screenOrientation="landscape" />
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="locale|orientation|screenSize|uiMode|keyboard|keyboardHidden|navigation|density|smallestScreenSize|screenLayout"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
