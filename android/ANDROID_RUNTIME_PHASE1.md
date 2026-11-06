@@ -87,3 +87,8 @@ The Android NDK build includes the assembly backend and a native context-switch 
 ### Deliberate compile boundary: movie HLE
 
 The core compile-check excludes upstream runtime/hle/movie.c because that source requires FFmpeg headers and libraries (libavcodec, libavformat, libavutil and libswscale), which are not yet integrated as Android ARM64 prebuilts. No stub or fake video support is added. Android FFmpeg integration and movie playback remain explicit runtime dependencies outside this Phase 1 platform/core gate.
+
+
+### Android realtime clock compatibility
+
+The upstream system-clock HLE uses C11 timespec_get(TIME_UTC), which is not exposed by the current Android Bionic headers in this build configuration. The Android-only source adaptation uses clock_gettime(CLOCK_REALTIME) with a zero-initialized timespec. It retains wall-clock/realtime semantics; it is not replaced with a monotonic clock.

@@ -59,6 +59,15 @@ def main() -> None:
     for file, token in checks.items():
         if token not in file.read_text(encoding="utf-8"):
             raise SystemExit(f"post-edit verification failed: {file} missing {token!r}")
+    time_service = root / "runtime/services/time.c"
+    if not time_service.is_file():
+        raise SystemExit(f"missing pinned upstream source file: {time_service}")
+    replace_once(
+        time_service,
+        "    struct timespec ts;\\n    timespec_get(&ts, TIME_UTC);",
+        "    struct timespec ts = {0};\\n    (void)clock_gettime(CLOCK_REALTIME, &ts);",
+    )
+
     fiber = root / "runtime/hle/fiber.c"
     fiber_source = fiber.read_text(encoding="utf-8")
 

@@ -194,3 +194,8 @@ The Android-only CI patch now adjusts the POSIX realpath output buffers in upstr
 ### Multimedia dependency boundary
 
 The upstream movie HLE requires FFmpeg headers/libraries absent from the Android target. It is explicitly excluded from the Phase 1 core compile-check until real Android ARM64 FFmpeg libraries are integrated; no placeholder movie implementation is supplied.
+
+
+### Realtime clock compatibility
+
+Upstream services/time.c is adapted on Android from timespec_get(TIME_UTC) to clock_gettime(CLOCK_REALTIME), preserving wall-clock timestamp semantics required by the HLE system clock.
