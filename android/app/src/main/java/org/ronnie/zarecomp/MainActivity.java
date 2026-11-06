@@ -110,12 +110,12 @@ public final class MainActivity extends Activity {
                 storageProbeReport = nativeRunStorageProbe(
                         getFilesDir().getAbsolutePath(),
                         getCacheDir().getAbsolutePath(), getAssets());
-                persistDiagnosticReports();
+                persistStorageProbeReport();
                 status.setText(storageProbeReport);
             } catch (Throwable error) {
                 storageProbeReport = "ANDROID_STORAGE_BRIDGE result=FAIL "
                         + error.getClass().getSimpleName() + ": " + error.getMessage();
-                persistDiagnosticReports();
+                persistStorageProbeReport();
                 status.setText(storageProbeReport);
             }
         });
@@ -275,7 +275,7 @@ public final class MainActivity extends Activity {
         if (requestCode != REQUEST_IMPORT_DOCUMENT) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             safImportReport = "SAF_IMPORT result=CANCELLED";
-            persistDiagnosticReports();
+            persistSafImportReport();
             status.setText(safImportReport);
             return;
         }
@@ -289,7 +289,7 @@ public final class MainActivity extends Activity {
                     .putString("saf_import_report", result).apply();
             runOnUiThread(() -> {
                 safImportReport = result;
-                persistDiagnosticReports();
+                persistSafImportReport();
                 status.setText(result);
             });
         }, "za-saf-import").start();
