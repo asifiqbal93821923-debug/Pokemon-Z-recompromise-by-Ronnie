@@ -40,6 +40,12 @@ jobs:
           test -f vendor/pokeza-upstream/runtime/platform/linux.c
           echo "Pinned upstream runtime source is present at dfb47e9d8130d6ecde1c0afa1010fb1a102e50f6"
 
+      - name: Apply Android-only upstream platform header compatibility patch
+        run: |
+          git -C vendor/pokeza-upstream apply "$GITHUB_WORKSPACE/android/patches/upstream-android-platform-header.patch"
+          git -C vendor/pokeza-upstream diff --check
+          grep -F '#elif defined(__linux__) && !defined(__ANDROID__)' vendor/pokeza-upstream/runtime/platform.h
+
       - name: Checkout pinned SDL3 source
         uses: actions/checkout@v4
         with:

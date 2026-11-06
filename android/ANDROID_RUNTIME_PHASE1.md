@@ -53,3 +53,10 @@ Phase 1 can be marked complete only after:
 - a runtime-without-game-data smoke launch succeeds on the target phone.
 
 This phase does not include game-data decryption, game-specific generated code, or playable gameplay. Those belong to later phases and require the user's own legally obtained data outside GitHub.
+
+
+## Upstream runtime core Android compile gate
+
+The Android NDK build now compiles the pinned upstream runtime's root C/C++ sources plus HLE and service C sources into a static compile-check archive. Desktop platform translation units are excluded. This is not a runnable game runtime and does not include generated game code, NVN/Vulkan renderer sources, or UI Objective-C++ files; it exposes Bionic/source compatibility errors in the core runtime before attempting renderer integration.
+
+The upstream platform header includes a glibc-only Linux compatibility header when __linux__ is set. An Android-only CI patch now excludes that glibc shim when __ANDROID__ is set. The patch is applied only in the checkout used by CI; the pinned upstream submodule commit remains unchanged.
