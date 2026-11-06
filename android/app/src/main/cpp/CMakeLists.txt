@@ -83,6 +83,7 @@ target_link_libraries(main PRIVATE
     SDL3::SDL3
     za_android_input
     za_android_platform_backend
+    za_runtime_core_compilecheck
     vulkan
     log
     android

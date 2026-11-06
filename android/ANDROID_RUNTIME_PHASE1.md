@@ -60,3 +60,10 @@ This phase does not include game-data decryption, game-specific generated code, 
 The Android NDK build now compiles the pinned upstream runtime's root C/C++ sources plus HLE and service C sources into a static compile-check archive. Desktop platform translation units are excluded. This is not a runnable game runtime and does not include generated game code, NVN/Vulkan renderer sources, or UI Objective-C++ files; it exposes Bionic/source compatibility errors in the core runtime before attempting renderer integration.
 
 The upstream platform header includes a glibc-only Linux compatibility header when __linux__ is set. An Android-only CI patch now excludes that glibc shim when __ANDROID__ is set. The patch is applied only in the checkout used by CI; the pinned upstream submodule commit remains unchanged.
+
+
+## Android runtime path-manager smoke integration
+
+The native diagnostic now calls the pinned upstream rt_paths_init() / rt_data_root() APIs after the Android platform bootstrap. The Android linker pulls the actual upstream runtime/paths.c object from the compiled core archive into libmain.so. On the target phone, the test asserts that the chosen runtime root is exactly the app-private XDG data base plus zarecomp, exists as a directory, and is readable/writable.
+
+This exercises one real upstream runtime subsystem through the Android backend. It does not yet start runtime/main.c, boot a game, use the Vulkan renderer, or launch generated game code.

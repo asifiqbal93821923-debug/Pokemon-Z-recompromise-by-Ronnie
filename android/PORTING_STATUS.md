@@ -176,3 +176,11 @@ Owner supplied the full Build #69 diagnostics report from OnePlus CPH2943 / Andr
 - The native diagnostic now checks that XDG_DATA_HOME is an absolute writable app-private path after plat_init().
 - Build success is source/CI evidence only. The XDG path assertion still needs the owner's on-device report.
 - Full Phase 1 remains open: the repository still lacks the full upstream runtime source tree and the Android target still has explicit unsupported process operations. See ANDROID_RUNTIME_PHASE1.md.
+
+
+### Android upstream core compile and path-manager link gate (2026-11-06)
+
+- Runtime root C/C++ + HLE + services sources now compile into the Android ARM64 static compile-check archive.
+- The Android diagnostic shared library now links that archive and calls upstream rt_paths_init()/rt_data_root(), forcing runtime/paths.c into the APK link.
+- The on-device probe checks the selected path is the writable app-private XDG_DATA_HOME/zarecomp directory.
+- This is not yet the complete runtime entry point or game boot. UI/renderer backends, generated game library, Activity lifecycle bridge, and helper-process redesign remain.

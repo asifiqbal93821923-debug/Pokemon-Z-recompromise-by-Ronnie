@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include "paths.h"
 #include <sys/stat.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -76,6 +78,27 @@ int za_run_android_platform_api_probe(void)
         return 15;
     }
     SDL_Log("ZA_ANDROID_RUNTIME_ENV result=PASS linked_platform_symbols=%d app_private_xdg_data_home=yes", linked_symbols);
+    /* Exercise the pinned upstream path manager, not just the SDL private-dir API. */
+    rt_paths_init();
+    const char *runtime_root = rt_data_root();
+    char expected_runtime_root[1200];
+    const size_t xdg_len = strlen(xdg_data_home);
+    int root_len = snprintf(expected_runtime_root, sizeof(expected_runtime_root),
+                            "%s%szarecomp", xdg_data_home,
+                            (xdg_len > 0 && xdg_data_home[xdg_len - 1] == '/') ? "" : "/");
+    struct stat runtime_root_stat;
+    if (root_len <= 0 || (size_t)root_len >= sizeof(expected_runtime_root) ||
+        !runtime_root || strcmp(runtime_root, expected_runtime_root) != 0 ||
+        stat(runtime_root, &runtime_root_stat) != 0 || !S_ISDIR(runtime_root_stat.st_mode) ||
+        access(runtime_root, R_OK | W_OK) != 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "ZA_RUNTIME_PATHS result=FAIL root=%s expected=%s errno=%d",
+                     runtime_root ? runtime_root : "(null)", expected_runtime_root, errno);
+        return 16;
+    }
+    SDL_Log("ZA_RUNTIME_PATHS result=PASS app_private_root=%s writable=yes",
+            runtime_root);
+
     PlatSysInfo system_info = {0};
     char os_name[160] = {0};
     plat_system_info(&system_info);
