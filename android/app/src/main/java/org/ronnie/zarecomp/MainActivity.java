@@ -108,12 +108,12 @@ public final class MainActivity extends Activity {
     private void copyFullDiagnostics() {
         try {
             StringBuilder report = new StringBuilder(64 * 1024);
-            report.append("POKEMON Z-A ANDROID DIAGNOSTICS\\n");
-            report.append("Captured: ").append(java.time.Instant.now()).append('\\n');
+            report.append("POKEMON Z-A ANDROID DIAGNOSTICS\n");
+            report.append("Captured: ").append(java.time.Instant.now()).append('\n');
             report.append("Device: ").append(Build.MANUFACTURER).append(' ')
-                    .append(Build.MODEL).append('\\n');
+                    .append(Build.MODEL).append('\n');
             report.append("Android: ").append(Build.VERSION.RELEASE)
-                    .append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\\n");
+                    .append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\n");
             report.append("Supported ABIs: ");
             if (Build.SUPPORTED_ABIS != null) {
                 for (int i = 0; i < Build.SUPPORTED_ABIS.length; i++) {
@@ -121,27 +121,27 @@ public final class MainActivity extends Activity {
                     report.append(Build.SUPPORTED_ABIS[i]);
                 }
             }
-            report.append("\\nApp files: ").append(getFilesDir().getAbsolutePath()).append("\\n");
+            report.append("\nApp files: ").append(getFilesDir().getAbsolutePath()).append("\n");
 
             try {
                 System.loadLibrary("za_probe");
-                report.append("\\n=== NATIVE PROBE INFO ===\\n")
-                        .append(nativeGetProbeInfo()).append('\\n');
+                report.append("\n=== NATIVE PROBE INFO ===\n")
+                        .append(nativeGetProbeInfo()).append('\n');
             } catch (Throwable error) {
-                report.append("\\n=== NATIVE PROBE INFO UNAVAILABLE ===\\n")
+                report.append("\n=== NATIVE PROBE INFO UNAVAILABLE ===\n")
                         .append(error.getClass().getSimpleName()).append(": ")
-                        .append(error.getMessage()).append('\\n');
+                        .append(error.getMessage()).append('\n');
             }
 
             File logFile = new File(getFilesDir(), "za_sdl_diagnostics.log");
-            report.append("\\n=== COMPLETE SDL / VULKAN / GUEST MEMORY LOG ===\\n");
+            report.append("\n=== COMPLETE SDL / VULKAN / GUEST MEMORY LOG ===\n");
             if (logFile.isFile()) {
                 byte[] bytes = Files.readAllBytes(logFile.toPath());
                 report.append(new String(bytes, StandardCharsets.UTF_8));
-                report.append("\\n=== END LOG (").append(bytes.length)
-                        .append(" bytes) ===\\n");
+                report.append("\n=== END LOG (").append(bytes.length)
+                        .append(" bytes) ===\n");
             } else {
-                report.append("No SDL diagnostic log found. Launch SDL3 diagnostic first.\\n");
+                report.append("No SDL diagnostic log found. Launch SDL3 diagnostic first.\n");
             }
 
             ClipboardManager clipboard =
@@ -152,10 +152,10 @@ public final class MainActivity extends Activity {
             }
             clipboard.setPrimaryClip(ClipData.newPlainText(
                     "Pokémon Z-A full diagnostics", report.toString()));
-            status.setText("FULL DIAGNOSTICS COPIED\\n"
+            status.setText("FULL DIAGNOSTICS COPIED\n"
                     + report.length() + " characters copied. Paste the report here in ChatGPT.");
         } catch (Exception error) {
-            status.setText("FULL DIAGNOSTICS COPY FAILED\\n"
+            status.setText("FULL DIAGNOSTICS COPY FAILED\n"
                     + error.getClass().getSimpleName() + ": " + error.getMessage());
         }
     }
