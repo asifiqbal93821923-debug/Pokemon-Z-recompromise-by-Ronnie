@@ -96,8 +96,8 @@ jobs:
             "ndk;28.2.13676358" \
             "cmake;3.22.1"
 
-      - name: Build arm64 debug APK
-        run: gradle --no-daemon -p android :app:assembleDebug
+      - name: Build arm64 debug APK and report native compile gates
+        run: gradle --no-daemon --info -p android :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

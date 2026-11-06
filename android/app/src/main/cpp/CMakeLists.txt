@@ -161,6 +161,12 @@ target_link_libraries(za_runtime_graphics_compilecheck PRIVATE SDL3::SDL3 vulkan
 file(GLOB ZA_RUNTIME_UI_SOURCES CONFIGURE_DEPENDS
     "${ZA_UPSTREAM_RUNTIME}/ui/*.mm"
 )
+if(NOT ZA_RUNTIME_UI_SOURCES)
+    message(FATAL_ERROR "Pinned upstream runtime/ui/*.mm sources were not found; refusing an empty UI compile gate")
+endif()
+list(LENGTH ZA_RUNTIME_UI_SOURCES ZA_RUNTIME_UI_SOURCE_COUNT)
+message(STATUS "ZA_ANDROID_UI_COMPILE_GATE source_count=${ZA_RUNTIME_UI_SOURCE_COUNT}")
+set(CMAKE_VERBOSE_MAKEFILE ON)
 set_source_files_properties(${ZA_RUNTIME_UI_SOURCES} PROPERTIES LANGUAGE CXX)
 add_library(za_runtime_ui_compilecheck STATIC ${ZA_RUNTIME_UI_SOURCES})
 target_include_directories(za_runtime_ui_compilecheck PRIVATE
