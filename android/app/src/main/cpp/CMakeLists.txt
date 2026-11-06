@@ -108,3 +108,48 @@ target_link_libraries(main PRIVATE
     android
     dl
 )
+
+
+# Expand the Android compile gate to the actual upstream Vulkan/NVN renderer
+# and ImGui backends. Generated shader include blobs are excluded until their
+# build-time generators are wired into Android; this target is compile-only.
+set(ZA_RUNTIME_NVN_SOURCES
+    ${ZA_UPSTREAM_RUNTIME}/nvn/*.c
+    ${ZA_UPSTREAM_RUNTIME}/nvn/maxwell/*.c
+    ${ZA_UPSTREAM_RUNTIME}/nvn/vulkan/*.c
+    ${ZA_UPSTREAM_RUNTIME}/nvn/vulkan/*.cpp
+)
+file(GLOB ZA_RUNTIME_NVN_SOURCES CONFIGURE_DEPENDS ${ZA_RUNTIME_NVN_SOURCES})
+list(FILTER ZA_RUNTIME_NVN_SOURCES EXCLUDE REGEX "/(smaa_data|shader_prep)\\.c$")
+list(FILTER ZA_RUNTIME_NVN_SOURCES EXCLUDE REGEX "/fsr2_shaders\\.cpp$")
+
+set(ZA_IMGUI_ROOT "${ZA_UPSTREAM_ROOT}/third_party/imgui")
+set(ZA_IMGUI_SOURCES
+    "${ZA_IMGUI_ROOT}/imgui.cpp"
+    "${ZA_IMGUI_ROOT}/imgui_draw.cpp"
+    "${ZA_IMGUI_ROOT}/imgui_tables.cpp"
+    "${ZA_IMGUI_ROOT}/imgui_widgets.cpp"
+    "${ZA_IMGUI_ROOT}/backends/imgui_impl_sdl3.cpp"
+    "${ZA_IMGUI_ROOT}/backends/imgui_impl_vulkan.cpp"
+)
+add_library(za_runtime_graphics_compilecheck STATIC
+    ${ZA_RUNTIME_NVN_SOURCES}
+    ${ZA_IMGUI_SOURCES}
+)
+target_include_directories(za_runtime_graphics_compilecheck PRIVATE
+    "${ZA_UPSTREAM_RUNTIME}"
+    "${ZA_UPSTREAM_RUNTIME}/nvn"
+    "${ZA_UPSTREAM_RUNTIME}/nvn/maxwell"
+    "${ZA_UPSTREAM_RUNTIME}/nvn/vulkan"
+    "${ZA_IMGUI_ROOT}"
+    "${ZA_IMGUI_ROOT}/backends"
+    "${ZA_UPSTREAM_ROOT}/third_party/fsr2"
+    "${ZA_UPSTREAM_ROOT}/third_party/fsr2/vk"
+    "${CMAKE_CURRENT_LIST_DIR}/../../../../../vendor/vma/include"
+    "${CMAKE_CURRENT_LIST_DIR}/../../../../../vendor/shaderc/libshaderc/include"
+)
+target_compile_features(za_runtime_graphics_compilecheck PRIVATE c_std_11 cxx_std_17)
+target_compile_options(za_runtime_graphics_compilecheck PRIVATE
+    -Wall -Wextra -Wno-unused-function -Wno-format -fno-strict-aliasing
+)
+target_link_libraries(za_runtime_graphics_compilecheck PRIVATE SDL3::SDL3 vulkan log android dl)

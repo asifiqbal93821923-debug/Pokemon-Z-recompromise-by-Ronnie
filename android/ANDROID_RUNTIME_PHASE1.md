@@ -100,3 +100,10 @@ The upstream system-clock HLE uses C11 timespec_get(TIME_UTC), which is not expo
 The SDL diagnostic host now registers an SDL event-watch callback for Android lifecycle notifications (will/did background, will/did foreground, and low-memory). The callback only updates atomic lifecycle state and emits diagnostics; it does not touch renderer objects from the Android callback path. The render loop skips frame submission while the app is backgrounded. Window show/hide/minimize/restore/focus/pixel-size changes and SDL render-device reset/lost notifications are logged by the SDL event loop. This is an executable lifecycle smoke harness for the Android SDL host, not yet the upstream game runtime's renderer lifecycle implementation.
 
 CI can verify compilation and linking of this path. The target-phone test still needs one manual background/foreground cycle, screen rotation or window recreation if available, and inspection of the persisted lifecycle log. The actual upstream runtime entry point and renderer are still not linked into this APK; therefore this change alone does not close Phase 1.
+
+
+## Android renderer compile gate — in progress
+
+The next Android NDK pass now adds the pinned upstream NVN/Vulkan renderer translation units, Maxwell shader translator, Dear ImGui core, and SDL3/Vulkan ImGui backends to a separate static compile-check target. CI checks out Vulkan Memory Allocator v3.3.0 and shaderc v2025.1.1 headers for these source builds. The generated shader-data translation units (SMAA source, shader variant table, and embedded FSR2 GLSL blob) remain excluded until their upstream Makefile generators are reproduced in the Android build.
+
+This is still a compile gate, not a linked or running renderer. It intentionally does not link runtime/main.c or claim the launcher/game starts. The build output will identify the first remaining Android renderer source/dependency incompatibilities so they can be addressed before the real runtime target is assembled.
